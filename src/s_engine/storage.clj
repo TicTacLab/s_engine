@@ -1,4 +1,5 @@
 (ns s-engine.storage
+  (:import [com.datastax.driver.core.exceptions NoHostAvailableException])
   (:require [com.stuartsierra.component :as component]
             [schema.core :as s]
             [clojurewerkz.cassaforte.client :as cc]

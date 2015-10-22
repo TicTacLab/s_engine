@@ -8,8 +8,10 @@
 
 (defn new-system [config]
   (component/map->SystemMap
-    {:web           (new-web config)
-     :storage       (new-storage config)
+    {:storage       (new-storage config)
      :session-store (component/using
                       (new-session-storage)
-                      [:storage])}))
+                      [:storage])
+     :web           (component/using
+                      (new-web config)
+                      [:storage :session-store])}))

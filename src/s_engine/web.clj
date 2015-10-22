@@ -7,11 +7,11 @@
             [ring.middleware
              [params :refer (wrap-params)]
              [keyword-params :refer (wrap-keyword-params)]]
-            [ring.util.request :as req]
             [ring.util.response :as res]
             [cheshire.core :as json]
-            [malcolmx.core :as malx]
-            [clojure.walk :refer [keywordize-keys]])
+            [clojure.walk :refer [keywordize-keys]]
+            [s-engine.controller.model :as model]
+            [s-engine.controller.session :as session])
   (:import (org.eclipse.jetty.server Server)))
 
 (defn error-response [status code message]
@@ -57,8 +57,16 @@
         (res/charset "utf-8"))))
 
 (defroutes routes
-           ;;(POST "/api/files/:model-id/:event-id/event-log/append" req (calc-handler req :profile? true))
-           (ANY "/*" _ (response->json-response error-404-rnf)))
+  (POST "/api/files/upload" req (model/upload req))
+  (DELETE "/api/files/:model-id" req (model/delete req))
+
+  (GET "/api/files/:model-id/:event-id/event-log" req (session/get-event-log req))
+  (POST "/api/files/:model-id/:event-id/event-log/append" req (session/append-event req))
+  (POST "/api/files/:model-id/:event-id/event-log/set" req (session/set-event-log req))
+  (GET "/api/files/:model-id/:event-id/settlements" req (session/get-settlements req))
+  (DELETE "/api/files/:model-id/:event-id/" req (session/finalize req))
+
+  (ANY "/*" _ (response->json-response error-404-rnf)))
 
 (defn app [web]
   (-> routes

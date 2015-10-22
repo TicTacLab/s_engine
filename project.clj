@@ -8,6 +8,7 @@
                  [ch.qos.logback/logback-core "1.1.3"]
                  [ch.qos.logback/logback-classic "1.1.3"]
                  [org.clojure/tools.logging "0.3.1"]
+                 [clojurewerkz/cassaforte "2.0.2"]
                  [com.taoensso/nippy "2.9.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [prismatic/schema "1.0.1"]
