@@ -9,9 +9,9 @@
 (defn new-system [config]
   (component/map->SystemMap
     {:storage       (new-storage config)
-     :session-store (component/using
-                      (new-session-storage)
-                      [:storage])
+     :session-storage (component/using
+                        (new-session-storage)
+                        [:storage])
      :web           (component/using
                       (new-web config)
-                      [:storage :session-store])}))
+                      [:storage :session-storage])}))

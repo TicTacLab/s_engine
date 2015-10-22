@@ -20,9 +20,16 @@
     session))
 
 (defn get-one
-  "Return single session by id"
+  "Return single session by id or nil if not found"
   [session-storage session-id]
-  (get @(:session-table session-storage) session-id))
+  (get @(:session-table session-storage) session-id nil))
+
+(defn get-or-create!
+  [session-storage storage model-id session-id]
+  (if-let [session (get-one session-storage session-id)]
+    session
+    (let [workbook-bytes "test/resources/workbook.xlsx"]
+      (create! session-storage model-id workbook-bytes session-id))))
 
 (defn append-event!
   "Add event to session's event log"
@@ -55,7 +62,7 @@
   "Closes session and saves final workbook"
   [session-storage storage session]
   (let [wb (:workbook session)]
-    (write-workbook! storage wb)
+    (write-workbook! storage (:id session) wb)
     (swap! (:session-table session-storage) dissoc (:id session))
     (.close ^Workbook wb)))
 
