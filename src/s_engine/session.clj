@@ -1,7 +1,8 @@
 (ns s-engine.session
   (:require [com.stuartsierra.component :as component]
             [malcolmx.core :as mx]
-            [s-engine.model :as model]))
+            [s-engine.storage.workbook :refer [write-workbook!]])
+  (:import (org.apache.poi.ss.usermodel Workbook)))
 
 (def ^:const event-log-sheet "EventLog")
 
@@ -12,17 +13,16 @@
 (defrecord Session [id workbook model-id])
 
 (defn create!
-  [storage model-id session-id]
-  (let [{wb-file :file} (model/get-one model-id)
-        workbook (mx/parse wb-file)
+  [session-storage model-id workbook-bytes session-id]
+  (let [workbook (mx/parse workbook-bytes)
         session (->Session session-id workbook model-id)]
-    (swap! (:session-table storage) assoc session-id session)
+    (swap! (:session-table session-storage) assoc session-id session)
     session))
 
 (defn get-one
   "Return single session by id"
-  [storage session-id]
-  (get @(:session-table storage) session-id))
+  [session-storage session-id]
+  (get @(:session-table session-storage) session-id))
 
 (defn append-event!
   "Add event to session's event log"
@@ -51,15 +51,22 @@
          :out (get row "Out")})
       out-rows)))
 
-(defrecord SessionStorage
-  [session-table]
+(defn finalize
+  "Closes session and saves final workbook"
+  [session-storage storage session]
+  (let [wb (:workbook session)]
+    (write-workbook! storage wb)
+    (swap! (:session-table session-storage) dissoc (:id session))
+    (.close ^Workbook wb)))
+
+(defrecord SessionStorage [session-table storage]
   component/Lifecycle
   (start [component]
     (let [session-table (atom {})]
       (assoc component
         :session-table session-table)))
 
-  (stop  [component]
+  (stop [component]
     (assoc component
       :session-table nil)))
 

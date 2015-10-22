@@ -3,31 +3,33 @@
             [s-engine.session :refer :all]
             [com.stuartsierra.component :as component]))
 
+(def ^:const test-workbook "test/resources/workbook.xlsx")
+
 (defn make-storage []
   (-> (new-session-storage)
       (component/start)))
 
 (deftest create-test
   (let [storage (make-storage)
-        session (create! storage "model1" "session1")]
+        session (create! storage "model1" test-workbook "session1")]
     (is (= session
            (get @(:session-table storage) "session1")))))
 
 (deftest get-one-test
   (let [storage (make-storage)
-        session (create! storage "model1" "session1")]
+        session (create! storage "model1" test-workbook "session1")]
     (is (= session
            (get-one storage "session1")))))
 
 (deftest append-event-test
   (let [storage (make-storage)
-        session (create! storage "model1" "session1")
+        session (create! storage "model1" test-workbook "session1")
         event (->SessionEvent "type1" 0 0 {"attr" 1})]
     (append-event! session event)))
 
 (deftest get-events-test
   (let [storage (make-storage)
-        session (create! storage "model1" "session1")
+        session (create! storage "model1" test-workbook "session1")
         event1 (->SessionEvent "type1" 0 0 {"attr" 1})
         event2 (->SessionEvent "type1" 0 1 {"attr" 1})]
     (do
@@ -41,7 +43,7 @@
 
 (deftest get-out-test
   (let [storage (make-storage)
-        session (create! storage "model1" "session1")
+        session (create! storage "model1" test-workbook "session1")
         event (->SessionEvent "type1" 0 0 {"attr" 1})]
     (do
       (is (= [{:market "Market1", :out "A"}]
