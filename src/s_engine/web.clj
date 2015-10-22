@@ -37,6 +37,9 @@
   {:status (:status json)
    :body (json/generate-string json)})
 
+(defn settlement-handler [req]
+  req)
+
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
@@ -57,7 +60,7 @@
         (res/charset "utf-8"))))
 
 (defroutes routes
-           ;;(POST "/api/files/:model-id/:event-id/event-log/append" req (calc-handler req :profile? true))
+           (POST "/api/files/:model-id/:event-id/event-log/append" req (settlement-handler req))
            (ANY "/*" _ (response->json-response error-404-rnf)))
 
 (defn app [web]
