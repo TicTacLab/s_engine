@@ -3,15 +3,18 @@
             [schema.core :as s]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log]
+            [formative.parse :as fp]
             [ring.middleware
              [params :refer (wrap-params)]
-             [keyword-params :refer (wrap-keyword-params)]]
+             [keyword-params :refer (wrap-keyword-params)]
+             [multipart-params :refer (wrap-multipart-params)]]
             [ring.util.request :as req]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
             [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
+            [s-engine.form :refer [upload-model-form]]
             [s-engine.storage.model :as model])
   (:import (org.eclipse.jetty.server Server)))
 
@@ -72,7 +75,16 @@
 ;;
 
 (defn model-upload
-  [{{:keys [storage]} :web}])
+  [{{:keys [storage]} :web :as r}]
+  (response->json-response
+    (fp/with-fallback
+      (fn [pr]
+        (log/error pr)
+        (error-response 400 "MFP" "Error"))
+     (let [{:keys [id file]} (fp/parse-request upload-model-form r)
+           {:keys [filename tempfile]} file]
+       (model/write-model! storage id tempfile filename)
+       (success-response 200 "")))))
 
 (defn model-delete
   [{{:keys [model-id]} :params
@@ -146,8 +158,9 @@
 
 (defn app [web]
   (-> routes
-      (wrap-keyword-params)
       (wrap-params)
+      (wrap-keyword-params)
+      (wrap-multipart-params)
       (wrap-with-web web)
       (wrap-internal-server-error)
       (wrap-json-content-type)))
