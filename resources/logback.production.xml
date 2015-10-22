@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+    <appender name="R" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>/var/log/s_engine/s_engine.log</File>
+        <encoder>
+            <pattern>%5p | %d | [%t] ||| %m%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <maxHistory>3</maxHistory>
+            <FileNamePattern>/var/log/s_engine/s_engine.%d{yyyy-MM-dd}.log</FileNamePattern>
+        </rollingPolicy>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="R"/>
+    </root>
+</configuration>
