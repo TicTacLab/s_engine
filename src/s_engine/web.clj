@@ -159,14 +159,14 @@
          (response->json-response))))
 
 (defroutes routes
-  (POST "/api/files/upload" req (model-upload req))
-  (DELETE "/api/files/:model-id" req (model-delete req))
+  (POST "/files/upload" req (model-upload req))
+  (DELETE "/files/:model-id" req (model-delete req))
 
-  (GET "/api/files/:model-id/:event-id/event-log" req (session-get-event-log req))
-  (POST "/api/files/:model-id/:event-id/event-log/append" req (session-append-event req))
-  (POST "/api/files/:model-id/:event-id/event-log/set" req (session-set-event-log req))
-  (GET "/api/files/:model-id/:event-id/settlements" req (session-get-settlements req))
-  (DELETE "/api/files/:model-id/:event-id/" req (session-finalize req))
+  (GET "/files/:model-id/:event-id/event-log" req (session-get-event-log req))
+  (POST "/files/:model-id/:event-id/event-log/append" req (session-append-event req))
+  (POST "/files/:model-id/:event-id/event-log/set" req (session-set-event-log req))
+  (GET "/files/:model-id/:event-id/settlements" req (session-get-settlements req))
+  (DELETE "/files/:model-id/:event-id/" req (session-finalize req))
 
   (ANY "/*" _ (response->json-response error-404-rnf)))
 
