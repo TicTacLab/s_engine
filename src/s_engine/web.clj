@@ -22,14 +22,14 @@
 ;; Utils
 ;;
 
+(defn response->json-response [json]
+  {:status (:status json)
+   :body (json/generate-string json)})
+
 (defn error-response [status code message]
   {:status status
    :errors [{:code    code
              :message message}]})
-
-(defn success-response [status result]
-  {:status status
-   :data   result})
 
 (def error-400-mfp (error-response 400 "MFP" "Malformed body"))
 (def error-404-fnf (error-response 404 "FNF" "File not found"))
@@ -37,13 +37,9 @@
 (def error-423-cip (error-response 423 "CIP" "Calculation is in progress"))
 (def error-500-ise (error-response 500 "ISE" "Internal server error"))
 
-(defn return-with-log [value msgf & args]
-  (log/info (apply format (cons msgf args)))
-  value)
-
-(defn response->json-response [json]
-  {:status (:status json)
-   :body (json/generate-string json)})
+(defn success-response [status result]
+  {:status status
+   :data   result})
 
 (defn try-string->json [value]
   (try
@@ -55,20 +51,38 @@
   (fn [req]
     (h (assoc req :web web))))
 
-(defn wrap-internal-server-error [h]
-  (fn [req]
-    (try
-      (h req)
-      (catch Exception e
-        (log/error e "while request handling")
-        (response->json-response error-500-ise)))))
-
 (defn wrap-json-content-type [h]
   (fn [req]
     (-> req
         (h)
         (res/content-type "application/json")
         (res/charset "utf-8"))))
+
+(defmulti handle-error :type)
+
+(defmethod handle-error ::model/not-found
+  [{:keys [id]}]
+  (log/info "Model not found: %s" id)
+  (response->json-response error-404-fnf))
+
+(defmethod handle-error ::s/error
+  [{:keys [error value schema]}]
+  (log/info (format "Validation failed: %s does not match %s. Errors: %s" value schema error))
+  (response->json-response error-400-mfp))
+
+(defmethod handle-error :exception
+  [{:keys [exception]}]
+  (log/error exception)
+  (response->json-response error-500-ise))
+
+(defn wrap-errors [h]
+  (fn [r]
+    (try
+      (h r)
+      (catch clojure.lang.ExceptionInfo ex
+        (handle-error (ex-data ex)))
+      (catch Exception ex
+        (handle-error {:type :exception :exception ex})))))
 
 ;;
 ;; Routes
@@ -162,7 +176,7 @@
       (wrap-keyword-params)
       (wrap-multipart-params)
       (wrap-with-web web)
-      (wrap-internal-server-error)
+      (wrap-errors)
       (wrap-json-content-type)))
 
 (defrecord Web [host port server storage api]

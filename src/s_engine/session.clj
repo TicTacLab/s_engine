@@ -1,7 +1,8 @@
 (ns s-engine.session
   (:require [com.stuartsierra.component :as component]
             [malcolmx.core :as mx]
-            [s-engine.storage.workbook :refer [write-workbook!]])
+            [s-engine.storage.workbook :refer [write-workbook!]]
+            [s-engine.storage.model :as model])
   (:import (org.apache.poi.ss.usermodel Workbook)))
 
 (def ^:const event-log-sheet "EventLog")
