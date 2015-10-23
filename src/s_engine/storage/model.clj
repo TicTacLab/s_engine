@@ -24,10 +24,7 @@
                      (limit 1)))))
 
 (defn get-model [storage model-id]
-  (let [{:keys [conn]} storage
-        model (cql/get-one conn "sengine_models"
-                           (columns :id :name :file)
-                           (where [[= :id model-id]]))]
-    (if (nil? model)
-      (throw (ex-info "Model not found" {:type ::not-found, :id model-id}))
-      model)))
+  (let [{:keys [conn]} storage]
+    (cql/get-one conn "sengine_models"
+                 (columns :id :name :file)
+                 (where [[= :id model-id]]))))
