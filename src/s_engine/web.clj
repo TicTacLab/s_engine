@@ -28,11 +28,13 @@
   ([status json-body]
    {:status status
     :body   (when json-body
-              (json/generate-string {:data json-body}))}))
+              (json/generate-string {:status status
+                                     :data json-body}))}))
 
 (defn error-response [status code message]
   {:status status
-   :body (json/generate-string {:errors [{:code code
+   :body (json/generate-string {:status status
+                                :errors [{:code code
                                           :message message}]})})
 
 (def error-400-mfp (error-response 400 "MFP" "Malformed body"))
@@ -139,7 +141,7 @@
   [{{:keys [model-id event-id]} :params
     {:keys [session-storage storage]} :web}]
   (let [session (session/get-or-create! session-storage storage model-id event-id)]
-    (->> (session/get-out session)
+    (->> (session/get-out session) >trace
          (success-response 200))))
 
 (defn session-finalize
@@ -148,7 +150,7 @@
   (let [session (session/get-one session-storage event-id)]
     (when session
       (session/finalize session-storage storage session))
-    (success-response 204 "")))
+    (success-response 204)))
 
 (defroutes routes
   (POST "/files/upload" req (model-upload req))

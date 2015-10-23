@@ -24,7 +24,4 @@
                      (limit 1)))))
 
 (defn get-model [storage model-id]
-  (let [{:keys [conn]} storage]
-    (cql/get-one conn "sengine_models"
-                 (columns :id :name :file)
-                 (where [[= :id model-id]]))))
+  {:file model-id})

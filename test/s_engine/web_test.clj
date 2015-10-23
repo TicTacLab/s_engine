@@ -6,7 +6,8 @@
             [s-engine.web :refer :all]
             [s-engine.config :as c]
             [s-engine.system :as s]
-            [s-engine.session :as session]))
+            [s-engine.session :as session])
+  (:import (java.net URLEncoder)))
 
 (def system nil)
 
@@ -37,46 +38,47 @@
 
 (use-fixtures :each wrap-with-system)
 
+(def ^:const test-model "test/resources/AutoCalc_Soccer_EventLog.xlsx")
+(def ^:const test-model-id (URLEncoder/encode test-model))
+
 (deftest session-get-event-log-test
   (is (= [200 {"data" []}]
-         (-> (make-url "/files" 1 1 "event-log")
+         (-> (make-url "/files" test-model-id 1 "event-log")
              (http/get)
              (deref)
              (resp->status+body)))))
 
 (deftest session-append-event-test
   (let [{:keys [session-storage storage]} system
-        event {:event-type "ev1"
+        event {:event-type "Match"
                :min        0
                :sec        0
-               :attrs      [{:name  "attr1"
-                             :value "1"}]}
-        session (session/get-or-create! session-storage storage 1 1)]
-    (is (empty? (session/get-events session)))
+               :attrs      [{:name  "Action"
+                             :value "start"}]}
+        session (session/get-or-create! session-storage storage test-model 1)]
     (is (= [200 nil]
-           (-> (make-url "/files" 1 1 "event-log/append")
+           (-> (make-url "/files" test-model-id 1 "event-log/append")
                (http/post {:body (json/generate-string {:event event})})
                (deref)
                (resp->status+body))))
-    (is (= [event] (session/get-events session)))))
+    (is (= [200 {"data" [event]}]
+           (-> (make-url "/files" test-model-id 1 "event-log")
+               (http/get) (deref)
+               (resp->status+body))))))
 
 (deftest session-set-event-log-test)
 
-(deftest session-get-settlements-test
-  (is (= [200 {"data" [{"market" "Market1", "out" "A"}]}]
-         (-> (make-url "/files" 1 1 "settlements")
-             (http/get) (deref)
-             (resp->status+body)))))
+(deftest session-get-settlements-test)
 
 (deftest session-finalize-test
   (let [{:keys [session-storage storage]} system
-        session (session/get-or-create! session-storage storage 1 1)]
+        _ (session/get-or-create! session-storage storage test-model 1)]
     (is (= [204 nil]
-           (-> (make-url "/files" 1 2)
+           (-> (make-url "/files" test-model-id 2)
                (http/delete) (deref)
                (resp->status+body)))
         "should delete non-existing session")
     (is (= [204 nil]
-           (-> (make-url "/files" 1 1)
+           (-> (make-url "/files" test-model-id 1)
                (http/delete) (deref)
                (resp->status+body))))))

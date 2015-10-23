@@ -9,7 +9,7 @@
 
 (def ^:const out-sheet "OUT")
 
-(defrecord SessionEvent [event-type min sec attrs])
+(defrecord SessionEvent [order event-type min sec attrs])
 
 (defrecord Session [id workbook model-id])
 
@@ -29,8 +29,8 @@
   [session-storage storage model-id session-id]
   (if-let [session (get-one session-storage session-id)]
     session
-    (let [workbook-bytes "test/resources/workbook.xlsx"]
-      (create! session-storage model-id workbook-bytes session-id))))
+    (let [{:keys [file]} (model/get-model storage model-id)]
+      (create! session-storage model-id file session-id))))
 
 (defn append-event!
   "Add event to session's event log"
@@ -41,7 +41,9 @@
   "Get event log of session as sequence of events"
   [session]
   (let [wb (:workbook session)]
-    (mx/get-sheet wb event-log-sheet)))
+    (->> (mx/get-sheet wb event-log-sheet)
+         (map #(dissoc % ""))
+         (remove #(every? nil? (vals %))))))
 
 (defn set-events!
   "Set event log of session to given seq of events"
@@ -55,8 +57,8 @@
         out-rows (mx/get-sheet wb out-sheet)]
     (map
       (fn [row]
-        {:market (get row "MarketID")
-         :out (get row "Out")})
+        {:market (get row "Market name")
+         :out    (get row "Outcome")})
       out-rows)))
 
 (defn finalize
