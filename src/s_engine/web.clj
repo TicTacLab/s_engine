@@ -108,7 +108,7 @@
         error-400-mfp)
       (do
         (session/append-event! session event)
-        (success-response 200)))))
+        (success-response 200 (session/get-out session))))))
 
 (defn session-set-event-log
   [{{:keys [model-id event-id]} :params
@@ -116,8 +116,13 @@
   (let [events (as-> (req/body-string r) $
                      (try-string->json $))
         session (session/get-or-create! session-storage storage model-id event-id)]
-    (session/set-events! session events)
-    (success-response 200)))
+    (if-not (every? #(session/valid-event? session %) events)
+      (do
+        (log/info "Events not valid" events)
+        error-400-mfp)
+      (do
+        (session/set-events! session events)
+        (success-response 200 (session/get-out session))))))
 
 (defn session-get-settlements
   [{{:keys [model-id event-id]} :params

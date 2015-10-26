@@ -46,14 +46,6 @@
 
 (defrecord ModelWorkbook [workbook event-types column-order])
 
-(defn get-event-log-rows [model-wb]
-  (->> event-log-sheet
-       (mx/get-sheet (:workbook model-wb))
-       (map #(dissoc % ""))))
-
-(defn get-out-sheet [model-wb]
-  (mx/get-sheet (:workbook model-wb) out-sheet))
-
 (defn get-column-order [rows]
   (second
     (reduce
@@ -127,8 +119,20 @@
          (map #(event->row-data column-order %))
          (mx/append-rows! workbook event-log-sheet))))
 
-(defn set-event-log-sheet!
+(defn get-event-log-rows
+  "Returns contents of event log sheet"
+  [model-wb]
+  (->> event-log-sheet
+       (mx/get-sheet (:workbook model-wb))
+       (map #(dissoc % ""))))
+
+(defn set-event-log!
   "Sets contents of event log sheet to given coll of events"
   [model-wb events]
   (clear-event-log! model-wb)
   (append-events! model-wb events))
+
+(defn get-out-rows
+  "Returns contents of out sheet"
+  [model-wb]
+  (mx/get-sheet (:workbook model-wb) out-sheet))

@@ -43,12 +43,12 @@
 (defn set-events!
   "Set event log of session to given seq of events"
   [session events]
-  (model/set-event-log-sheet! (:model-wb session) events))
+  (model/set-event-log! (:model-wb session) events))
 
 (defn get-out
   "Get market outcome sheet values"
   [session]
-  (model/get-out-sheet (:model-wb session)))
+  (model/get-out-rows (:model-wb session)))
 
 (defn finalize
   "Closes session and saves final workbook"

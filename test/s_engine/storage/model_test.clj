@@ -126,13 +126,13 @@
       (append-events! model-wb [event])
       (append-events! model-wb [event])
       (is (= [event event]
-             (get-event-log model-wb))))))
+             (get-event-log-rows model-wb))))))
 
 (deftest get-event-log-test
   (testing "Empty event log"
     (let [model-wb (model-workbook test-model)]
       (clear-event-log! model-wb)
-      (is (empty? (get-event-log model-wb)))))
+      (is (empty? (get-event-log-rows model-wb)))))
   (testing "Not empty"
     (let [model-wb (model-workbook test-model)
           event1 {"EventType" "Match"
@@ -155,7 +155,7 @@
                   "Action"    "end"}]
       (append-events! model-wb [event1 event2])
       (is (= [event1 event2]
-             (get-event-log model-wb))))))
+             (get-event-log-rows model-wb))))))
 
 (deftest set-event-log-sheet!-test
   (let [model-wb (model-workbook test-model)
@@ -178,6 +178,6 @@
                 "Accidental" ""
                 "Action"     "start"}]
     (append-events! model-wb [event1])
-    (set-event-log-sheet! model-wb [event2])
+    (set-event-log! model-wb [event2])
     (is (= [event2]
-           (get-event-log model-wb)))))
+           (get-event-log-rows model-wb)))))
