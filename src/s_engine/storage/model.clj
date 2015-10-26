@@ -90,7 +90,7 @@
   [model-wb event]
   (let [{event-type "EventType" :strs [min sec]} event]
     (and (contains? (:event-types model-wb) event-type)
-         (every? identity [min sec])
+         min sec
          (valid-event-attrs? model-wb event))))
 
 (defn clear-event-log! [model-wb]
