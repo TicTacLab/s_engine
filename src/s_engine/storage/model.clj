@@ -47,6 +47,11 @@
 (defrecord ModelWorkbook [workbook event-types column-order])
 
 (defn get-column-order [rows]
+  (->> rows
+       (map #(get % event-type-attr-column))
+       distinct))
+
+#_(defn get-column-order [rows]
   (second
     (reduce
       (fn [[colls-set result] row]

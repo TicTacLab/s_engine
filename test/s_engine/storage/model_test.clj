@@ -1,6 +1,7 @@
 (ns s-engine.storage.model-test
   (:require [clojure.test :refer :all]
-            [s-engine.storage.model :refer :all]))
+            [s-engine.storage.model :refer :all]
+            ))
 
 (def ^:const test-model
   {:file "test/resources/AutoCalc_Soccer_EventLog.xlsx"})
@@ -42,7 +43,27 @@
                              "MetaValue" "Team1"}
                             {"EventType" "Red Card"
                              "MetaKey"   "Team"
-                             "MetaValue" "Team2"}]))))
+                             "MetaValue" "Team2"}])))
+  (is (= ["Game Part" "Attribute" "Team"]
+         (get-column-order [{"EventType" "Red Card"
+                             "MetaKey"   "Game Part"
+                             "MetaValue" "Half2"}
+                            {"EventType" "Red Card"
+                             "MetaKey"   "Attribute"
+                             "MetaValue" "True"}
+                            {"EventType" "Goal"
+                             "MetaKey"   "Team"
+                             "MetaValue" "Team1"}
+                            {"EventType" "Goal"
+                             "MetaKey"   "Team"
+                             "MetaValue" "Team2"}
+                            {"EventType" "Red Card"
+                             "MetaKey"   "Team"
+                             "MetaValue" "Team1"}
+                            {"EventType" "Red Card"
+                             "MetaKey"   "Game Part"
+                             "MetaValue" "Half1"}
+                            ]))))
 
 (deftest get-event-types-test
   (is (= {}
