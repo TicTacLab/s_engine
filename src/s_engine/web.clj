@@ -49,6 +49,9 @@
     (catch Exception _
       value)))
 
+(defn settlement-handler [req]
+  req)
+
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
