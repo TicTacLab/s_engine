@@ -72,7 +72,7 @@
       (let [event-name (get row event-type-column)
             attr-name (get row event-type-attr-column)
             attr-val (get row event-type-value-column)]
-        (if (= attr-name "")
+        (if (empty? attr-name)
           acc
           (update-in acc [event-name attr-name] (fnil conj #{}) attr-val))))
     {}
