@@ -65,6 +65,32 @@
       (append-event! session event2)
       (is (= [event1 event2] (get-events session))))))
 
+(deftest set-events!-test
+  (let [storage (make-storage)
+        event1 {"EventType"  "Goal"
+                "min"        0.
+                "sec"        0.
+                "Team"       "Team1"
+                "GamePart"   "Half1"
+                "Standart"   "Corner"
+                "BodyPart"   "Head"
+                "Accidental" "OwnGoal"
+                "Action"     ""}
+        event2 {"EventType"  "Goal"
+                "min"        1.
+                "sec"        1.
+                "Team"       "Team2"
+                "GamePart"   "Half1"
+                "Standart"   "Corner"
+                "BodyPart"   "Head"
+                "Accidental" "OwnGoal"
+                "Action"     ""}
+        session (create! storage {:id "model1", :file test-workbook} "session1")]
+    (append-event! session event1)
+    (set-events! session [event2])
+    (is (= [event2]
+           (get-events session)))))
+
 (deftest get-out-test
   (let [storage (make-storage)
         session (create! storage {:id "model1", :file test-workbook} "session1")]
