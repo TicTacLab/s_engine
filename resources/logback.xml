@@ -10,7 +10,7 @@
     <logger name="org.apache.cassandra" level="ERROR"/>
     <logger name="com.datastax.driver" level="WARN"/>
     <logger name="me.prettyprint.cassandra" level="WARN"/>
-    <logger name="s-admin.audit" level="ERROR"/>
+    <logger name="s-engine.audit" level="ERROR"/>
 
     <root level="INFO">
         <appender-ref ref="console"/>
