@@ -1,22 +1,15 @@
 (ns s-engine.session
   (:require [com.stuartsierra.component :as component]
-            [malcolmx.core :as mx]
             [s-engine.storage.workbook :refer [write-workbook!]]
-            [s-engine.storage.model :as model])
-  (:import (org.apache.poi.ss.usermodel Workbook)))
+            [s-engine.storage.model :as model]
+            [clojure.tools.logging :as log]))
 
-(def ^:const event-log-sheet "EventLog")
-
-(def ^:const out-sheet "OUT")
-
-(defrecord SessionEvent [order event-type min sec attrs])
-
-(defrecord Session [id workbook model-id])
+(defrecord Session [id model-wb model-id])
 
 (defn create!
-  [session-storage model-id workbook-bytes session-id]
-  (let [workbook (mx/parse workbook-bytes)
-        session (->Session session-id workbook model-id)]
+  [session-storage model session-id]
+  (let [model-wb (model/model-workbook model)
+        session (->Session session-id model-wb (:id model))]
     (swap! (:session-table session-storage) assoc session-id session)
     session))
 
@@ -29,45 +22,41 @@
   [session-storage storage model-id session-id]
   (if-let [session (get-one session-storage session-id)]
     session
-    (let [{:keys [file]} (model/get-model storage model-id)]
-      (create! session-storage model-id file session-id))))
+    (let [model (model/get-model storage model-id)]
+      (create! session-storage model session-id))))
+
+(defn valid-event?
+  [session event]
+  (model/valid-event? (:model-wb session) event))
 
 (defn append-event!
   "Add event to session's event log"
   [session event]
-  )
+  (let [{:keys [model-wb]} session]
+    (model/append-events! model-wb [event])))
 
 (defn get-events
   "Get event log of session as sequence of events"
   [session]
-  (let [wb (:workbook session)]
-    (->> (mx/get-sheet wb event-log-sheet)
-         (map #(dissoc % ""))
-         (remove #(every? nil? (vals %))))))
+  (model/get-event-log-rows (:model-wb session)))
 
 (defn set-events!
   "Set event log of session to given seq of events"
-  [session events-coll]
-  )
+  [session events]
+  (model/set-event-log-sheet! (:model-wb session) events))
 
 (defn get-out
-  "Get market outcomes values"
+  "Get market outcome sheet values"
   [session]
-  (let [wb (:workbook session)
-        out-rows (mx/get-sheet wb out-sheet)]
-    (map
-      (fn [row]
-        {:market (get row "Market name")
-         :out    (get row "Outcome")})
-      out-rows)))
+  (model/get-out-sheet (:model-wb session)))
 
 (defn finalize
   "Closes session and saves final workbook"
   [session-storage storage session]
-  (let [wb (:workbook session)]
-    (write-workbook! storage (:id session) wb)
-    (swap! (:session-table session-storage) dissoc (:id session))
-    (.close ^Workbook wb)))
+  (let [model-wb (:model-wb session)]
+    (write-workbook! storage (:id session) model-wb)
+    (model/finalize! (:model-wb session))
+    (swap! (:session-table session-storage) dissoc (:id session))))
 
 (defrecord SessionStorage [session-table storage]
   component/Lifecycle

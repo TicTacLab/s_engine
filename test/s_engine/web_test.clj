@@ -42,7 +42,7 @@
 (def ^:const test-model-id (URLEncoder/encode test-model))
 
 (deftest session-get-event-log-test
-  (is (= [200 {"data" []}]
+  (is (= [200 {"data" [] "status" 200}]
          (-> (make-url "/files" test-model-id 1 "event-log")
              (http/get)
              (deref)
@@ -50,25 +50,63 @@
 
 (deftest session-append-event-test
   (let [{:keys [session-storage storage]} system
-        event {:event-type "Match"
-               :min        0
-               :sec        0
-               :attrs      [{:name  "Action"
-                             :value "start"}]}
+        event {"EventType" "Match"
+               "min"       0
+               "sec"       0
+               "Action"    "start"}
         session (session/get-or-create! session-storage storage test-model 1)]
     (is (= [200 nil]
            (-> (make-url "/files" test-model-id 1 "event-log/append")
-               (http/post {:body (json/generate-string {:event event})})
+               (http/post {:body (json/generate-string event)})
                (deref)
                (resp->status+body))))
-    (is (= [200 {"data" [event]}]
+    (is (= [200 {"status" 200
+                 "data"   [{"EventType"  "Match"
+                            "min"        0.
+                            "sec"        0.
+                            "Team"       ""
+                            "GamePart"   ""
+                            "Standart"   ""
+                            "BodyPart"   ""
+                            "Accidental" ""
+                            "Action"     "start"}]}]
            (-> (make-url "/files" test-model-id 1 "event-log")
                (http/get) (deref)
                (resp->status+body))))))
 
-(deftest session-set-event-log-test)
+(deftest session-set-event-log-test
+  (let [{:keys [session-storage storage]} system
+        event1 {"EventType" "Match"
+                "min"       0
+                "sec"       0
+                "Action"    "start"}
+        event2 {"EventType" "Match"
+                "min"       1
+                "sec"       1
+                "Action"    "end"}
+        session (session/get-or-create! session-storage storage test-model 1)]
+    (session/append-event! session event1)
+    (is (= [200 nil]
+           (-> (make-url "/files" test-model-id 1 "event-log/set")
+               (http/post {:body (json/generate-string [event2])})
+               (deref)
+               (resp->status+body))))
+    (is (= [200 {"status" 200
+                 "data" [{"EventType" "Match"
+                          "min" 1.0
+                          "sec" 1.0
+                          "Team"       ""
+                          "GamePart"   ""
+                          "Standart"   ""
+                          "BodyPart"   ""
+                          "Accidental" ""
+                          "Action" "end"}]}]
+           (-> (make-url "/files" test-model-id 1 "event-log")
+               (http/get) (deref)
+               (resp->status+body))))))
 
-(deftest session-get-settlements-test)
+(deftest session-get-settlements-test
+  )
 
 (deftest session-finalize-test
   (let [{:keys [session-storage storage]} system

@@ -1,7 +1,7 @@
 (defproject s-engine "1.0.0-SNAPSHOT"
   :description "REST FOR SETTLEMENT EXCEL"
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [malcolmx "0.1.3"]
+                 [malcolmx "0.1.4-SNAPSHOT"]
                  [com.betinvest/noilly "0.1.4"]
                  [org.clojure/tools.trace "0.7.8"]
                  [org.slf4j/slf4j-api "1.7.12"]

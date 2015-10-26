@@ -45,7 +45,7 @@
 
 (defn try-string->json [value]
   (try
-    (json/parse-string value true)
+    (json/parse-string value false)
     (catch Exception _
       value)))
 
@@ -60,31 +60,13 @@
         (res/content-type "application/json")
         (res/charset "utf-8"))))
 
-(defmulti handle-error :type)
-
-(defmethod handle-error ::model/not-found
-  [{:keys [id]}]
-  (log/info "Model not found: %s" id)
-  error-404-fnf)
-
-(defmethod handle-error ::s/error
-  [{:keys [error value schema]}]
-  (log/info (format "Validation failed: %s does not match %s. Errors: %s" value schema error))
-  error-400-mfp)
-
-(defmethod handle-error :exception
-  [{:keys [exception]}]
-  (log/error exception)
-  error-500-ise)
-
 (defn wrap-errors [h]
   (fn [r]
     (try
       (h r)
-      (catch clojure.lang.ExceptionInfo ex
-        (handle-error (ex-data ex)))
-      (catch Exception ex
-        (handle-error {:type :exception :exception ex})))))
+      (catch Exception e
+        (log/error e "while request handling")
+        error-500-ise))))
 
 ;;
 ;; Routes
@@ -115,33 +97,33 @@
         events (session/get-events session)]
     (success-response 200 events)))
 
-(def ^:const event-schema
-  {:event-type s/Str
-   :min s/Int
-   :sec s/Int
-   :attrs [{:name s/Str
-            :value s/Str}]})
-
 (defn session-append-event
   [{{:keys [model-id event-id]} :params
     {:keys [session-storage storage]} :web :as r}]
-  (let [params (try-string->json (req/body-string r))
-        event (:event params)
+  (let [event (try-string->json (req/body-string r))
         session (session/get-or-create! session-storage storage model-id event-id)]
-    (session/append-event! session event)
-    (success-response 200)))
+    (if-not (session/valid-event? session event)
+      (do
+        (log/info "Event not valid" event)
+        error-400-mfp)
+      (do
+        (session/append-event! session event)
+        (success-response 200)))))
 
 (defn session-set-event-log
   [{{:keys [model-id event-id]} :params
-    {:keys [session-storage storage]} :web}]
-  (let [session (session/get-or-create! session-storage storage model-id event-id)]
-    (success-response 200 (session/get-events session))))
+    {:keys [session-storage storage]} :web :as r}]
+  (let [events (as-> (req/body-string r) $
+                     (try-string->json $))
+        session (session/get-or-create! session-storage storage model-id event-id)]
+    (session/set-events! session events)
+    (success-response 200)))
 
 (defn session-get-settlements
   [{{:keys [model-id event-id]} :params
     {:keys [session-storage storage]} :web}]
   (let [session (session/get-or-create! session-storage storage model-id event-id)]
-    (->> (session/get-out session) >trace
+    (->> (session/get-out session)
          (success-response 200))))
 
 (defn session-finalize
