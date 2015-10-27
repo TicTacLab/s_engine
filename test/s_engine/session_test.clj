@@ -22,7 +22,7 @@
 (def system nil)
 
 (defn start-system []
-  (alter-var-root #'system (constantly (s/new-system @c/config :test true)))
+  (alter-var-root #'system (constantly (s/new-system @c/config)))
   (alter-var-root #'system component/start))
 
 (defn stop-system []

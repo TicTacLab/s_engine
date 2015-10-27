@@ -29,63 +29,43 @@
            (Bytes/getArray (:file row))
            (:file_name row)))
 
-(defprotocol IModelStorage
-  (exists? [_ m-id])
-  (write! [_ m-id file-bytes filename])
-  (delete! [_ m-id])
-  (get-one [_ m-id]))
-
-(defrecord TestModelStorage [state]
-  component/Lifecycle
-  (start [component]
-    (assoc component :state (atom {})))
-  (stop [component]
-    (assoc component :state nil))
-
-  IModelStorage
-  (exists? [_ m-id]
-    (contains? @state m-id))
-  (write! [_ m-id file-bytes filename]
-    (swap! state assoc m-id (->Model m-id file-bytes filename)))
-  (delete! [_ m-id]
-    (swap! state dissoc m-id))
-  (get-one [_ m-id]
-    (get @state m-id)))
-
-(defn new-test-model-storage []
-  (map->TestModelStorage {}))
-
-(defrecord CassandraModelStorage [storage]
+(defrecord ModelStorage [storage]
   component/Lifecycle
   (start [component] component)
-  (stop [component] component)
+  (stop [component] component))
 
-  IModelStorage
-  (exists? [_ model-id]
-    (let [{:keys [conn]} storage]
-      (boolean (seq (cql/select conn table-name
-                                (columns :id)
-                                (where [[= :id model-id]])
-                                (limit 1))))))
-  (write! [_ model-id file-bytes filename]
-    (let [model {:id model-id, :file_name filename, :file file-bytes}]
-      (cql/insert (:conn storage) table-name model)))
+(defn exists?
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))]
+    (boolean (seq (cql/select conn table-name
+                              (columns :id)
+                              (where [[= :id model-id]])
+                              (limit 1))))))
 
-  (delete! [_ model-id]
-    (let [{:keys [conn]} storage]
-      (cql/delete conn table-name
-                  (where [[= :id model-id]]))))
+(defn write!
+  [model-storage model-id file-bytes filename]
+  (let [conn (:conn (:storage model-storage))
+        model {:id model-id, :file_name filename, :file file-bytes}]
+    (cql/insert conn table-name model)))
 
-  (get-one [_ model-id]
-    (let [{:keys [conn]} storage
-          row (first (cql/select conn table-name
-                                 (columns :id :file :file_name)
-                                 (where [[= :id model-id]])))]
-      (when row
-        (row->model row)))))
+(defn delete!
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))]
+    (cql/delete conn table-name
+                (where [[= :id model-id]]))))
 
-(defn new-cassandra-model-storage []
-  (map->CassandraModelStorage {}))
+(defn get-one
+  "Retrieves model from storage, returns nil if not found"
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))
+        row (first (cql/select conn table-name
+                               (columns :id :file :file_name)
+                               (where [[= :id model-id]])))]
+    (when row
+      (row->model row))))
+
+(defn new-model-storage []
+  (map->ModelStorage {}))
 
 (defn read-bytes [^File file]
   (Files/readAllBytes (Paths/get (.toURI file))))
