@@ -103,14 +103,18 @@
     (log/info "Model with id not found" m-id)
     error-404-fnf))
 
-(def events-schema
-  [{(s/required-key "EventType") s/Str
-    (s/required-key "min")       s/Num
-    (s/required-key "sec")       s/Num
-    String s/Any}])
+(def ^:const event-schema
+  {(s/required-key "EventType") s/Str
+   (s/required-key "min")       s/Num
+   (s/required-key "sec")       s/Num
+   String s/Any})
 
-(defn- check-valid-events [events-str]
-  (let [errors (s/check events-schema events-str)]
+(def ^:const events-schema
+  [(s/one event-schema "e")
+   event-schema])
+
+(defn check-valid-events [events]
+  (let [errors (s/check events-schema events)]
     (when errors
       (log/info "Events does not match schema" errors)
       error-400-mfp)))

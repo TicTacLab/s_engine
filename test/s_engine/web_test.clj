@@ -42,6 +42,27 @@
 (def ^:const test-model "test/resources/AutoCalc_Soccer_EventLog.xlsx")
 (def ^:const test-model-id (URLEncoder/encode test-model))
 
+;;
+;; Utils test
+;;
+
+(deftest check-valid-events-test
+  (is (not (nil? (check-valid-events ""))))
+  (is (not (nil? (check-valid-events []))))
+  (is (not (nil? (check-valid-events [{}]))))
+  (is (not (nil? (check-valid-events [{"EventType" "TYPE"}]))))
+  (is (nil? (check-valid-events [{"EventType" "TYPE"
+                                  "min" 0
+                                  "sec" 0.0}])))
+  (is (nil? (check-valid-events [{"EventType" "TYPE"
+                                  "min" 0
+                                  "sec" 0.0
+                                  "Attr" "Value"}]))))
+
+;;
+;; Routes test
+;;
+
 (deftest session-get-event-log-test
   (let [{:keys [session-storage]} system]
     (session/create! session-storage {:file test-model} "1")
