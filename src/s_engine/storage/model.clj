@@ -1,8 +1,10 @@
 (ns s-engine.storage.model
   (:import (java.io File)
            (java.nio.file Paths Files)
-           (org.apache.poi.ss.usermodel Workbook))
+           (org.apache.poi.ss.usermodel Workbook)
+           (com.datastax.driver.core.utils Bytes))
   (:require [malcolmx.core :as mx]
+            [com.stuartsierra.component :as component]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]))
 
@@ -18,28 +20,75 @@
 ;; Persistense
 ;;
 
-(defn write-model!
-  [storage model-id tempfile filename]
-  (let [file-bytes (Files/readAllBytes (Paths/get (.toURI ^File tempfile)))
-        {:keys [conn]} storage
-        model {:id model-id, :name filename, :file file-bytes}]
-    (cql/insert conn "sengine_models" model)))
+(def ^:private table-name "sengine_models")
 
-(defn delete-model! [storage model-id]
-  (let [{:keys [conn]} storage]
-    (cql/delete conn "sengine_models"
-                (where [[= :id model-id]]))))
+(defrecord Model [id file file-name])
 
-(defn exists? [storage model-id]
-  (.exists ^File (File. model-id))
-  #_(let [{:keys [conn]} storage]
-    (seq (cql/select conn "models"
-                     (columns :id)
-                     (where [[= :id model-id]])
-                     (limit 1)))))
+(defn- row->model [row]
+  (->Model (:id row)
+           (Bytes/getArray (:file row))
+           (:file_name row)))
 
-(defn get-model [storage model-id]
-  {:id model-id :file model-id})
+(defprotocol IModelStorage
+  (exists? [_ m-id])
+  (write! [_ m-id file-bytes filename])
+  (delete! [_ m-id])
+  (get-one [_ m-id]))
+
+(defrecord TestModelStorage [state]
+  component/Lifecycle
+  (start [component]
+    (assoc component :state (atom {})))
+  (stop [component]
+    (assoc component :state nil))
+
+  IModelStorage
+  (exists? [_ m-id]
+    (contains? @state m-id))
+  (write! [_ m-id file-bytes filename]
+    (swap! state assoc m-id (->Model m-id file-bytes filename)))
+  (delete! [_ m-id]
+    (swap! state dissoc m-id))
+  (get-one [_ m-id]
+    (get @state m-id)))
+
+(defn new-test-model-storage []
+  (map->TestModelStorage {}))
+
+(defrecord CassandraModelStorage [storage]
+  component/Lifecycle
+  (start [component] component)
+  (stop [component] component)
+
+  IModelStorage
+  (exists? [_ model-id]
+    (let [{:keys [conn]} storage]
+      (boolean (seq (cql/select conn table-name
+                                (columns :id)
+                                (where [[= :id model-id]])
+                                (limit 1))))))
+  (write! [_ model-id file-bytes filename]
+    (let [model {:id model-id, :file_name filename, :file file-bytes}]
+      (cql/insert (:conn storage) table-name model)))
+
+  (delete! [_ model-id]
+    (let [{:keys [conn]} storage]
+      (cql/delete conn table-name
+                  (where [[= :id model-id]]))))
+
+  (get-one [_ model-id]
+    (let [{:keys [conn]} storage
+          row (first (cql/select conn table-name
+                                 (columns :id :file :file_name)
+                                 (where [[= :id model-id]])))]
+      (when row
+        (row->model row)))))
+
+(defn new-cassandra-model-storage []
+  (map->CassandraModelStorage {}))
+
+(defn read-bytes [^File file]
+  (Files/readAllBytes (Paths/get (.toURI file))))
 
 ;;
 ;; ModelWorkbook

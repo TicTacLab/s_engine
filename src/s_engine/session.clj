@@ -7,8 +7,9 @@
 (defrecord Session [id model-wb model-id])
 
 (defn create!
-  [session-storage model session-id]
-  (let [model-wb (model/model-workbook model)
+  [session-storage model-storage model-id session-id]
+  (let [model (model/get-one model-storage model-id)
+        model-wb (model/model-workbook model)
         session (->Session session-id model-wb (:id model))]
     (swap! (:session-table session-storage) assoc session-id session)
     session))
@@ -21,13 +22,6 @@
 (defn exists?
   [session-storage session-id]
   (contains? @(:session-table session-storage) session-id))
-
-(defn get-or-create!
-  [session-storage storage model-id session-id]
-  (if-let [session (get-one session-storage session-id)]
-    session
-    (let [model (model/get-model storage model-id)]
-      (create! session-storage model session-id))))
 
 (defn valid-event?
   [session event]

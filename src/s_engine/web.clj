@@ -16,7 +16,8 @@
             [s-engine.session :as session]
             [s-engine.form :refer [upload-model-form]]
             [s-engine.storage.model :as model])
-  (:import (org.eclipse.jetty.server Server)))
+  (:import (org.eclipse.jetty.server Server)
+           (clojure.lang ExceptionInfo)))
 
 ;;
 ;; Utils
@@ -68,6 +69,14 @@
         (log/error e "while request handling")
         error-500-ise))))
 
+(defn- safe-parse-request
+  [form request]
+  (try
+    (let [params (fp/parse-request form request)]
+      [params nil])
+    (catch ExceptionInfo e
+      [nil (:problems e)])))
+
 (defmacro resp->
   "Evaluates forms sequentially and returns first valid response. Returns last item if no response found.
   Does not inserts result of previous form as second item in next form."
@@ -78,13 +87,21 @@
            ~@(interleave (repeat g) (map pstep forms))]
        ~g)))
 
+(defn check-upload-model-form
+  [problems]
+  (when problems
+    (log/info "Problems while parsing model upload form" problems)
+    error-400-mfp))
+
 (defn- check-event-id [e-id]
   (when (empty? e-id)
     (log/info "Invalid event id" e-id)
     error-400-mfp))
 
 (defn- check-model-id [m-id]
-  )
+  (when (not (integer? m-id))
+    (log/info "Invalid model id" m-id)
+    error-400-mfp))
 
 (defn- check-session-exists [session-storage s-id]
   (when-not (session/exists? session-storage s-id)
@@ -96,8 +113,8 @@
     (log/info "Session with id already created" s-id)
     error-400-mfp))
 
-(defn- check-model-exists [storage m-id]
-  (when-not (model/exists? storage m-id)
+(defn- check-model-exists [model-storage m-id]
+  (when-not (model/exists? model-storage m-id)
     (log/info "Model with id not found" m-id)
     error-404-fnf))
 
@@ -122,34 +139,36 @@
 ;;
 
 (defn model-upload
-  [{{:keys [storage]} :web :as r}]
-  (fp/with-fallback
-    (fn [pr]
-      (log/error pr)
-      (error-response 400 "MFP" "Error"))
-    (let [{:keys [id file]} (fp/parse-request upload-model-form r)
-          {:keys [filename tempfile]} file]
-      (model/write-model! storage id tempfile filename)
-      (success-response 200))))
+  [{{:keys [model-storage]} :web :as r}]
+  (let [[params problems] (safe-parse-request upload-model-form r)]
+    (resp-> (check-upload-model-form problems)
+            (check-model-id (:id params))
+            (let [{:keys [id file]} params
+                  {:keys [filename tempfile]} file
+                  file-bytes (model/read-bytes tempfile)]
+              (model/write! model-storage id file-bytes filename)
+              (success-response 201)))))
 
 (defn model-delete
-  [{{:keys [model-id]} :params
-    {:keys [storage]}  :web}]
-  (resp-> (check-model-exists storage model-id)
-          (do
-            (model/delete-model! storage model-id)
-            (success-response 204))))
+  [{params :params
+    {:keys [model-storage]}  :web}]
+  (let [model-id (try-string->json (:model-id params))]
+    (resp-> (check-model-id model-id)
+            (check-model-exists model-storage model-id)
+            (do
+              (model/delete! model-storage model-id)
+              (success-response 204)))))
 
 (defn session-create
   [{{:keys [event-id] :as params}     :params
-    {:keys [storage session-storage]} :web}]
+    {:keys [session-storage model-storage]} :web}]
   (let [model-id (try-string->json (:model-id params))]
     (resp-> (check-event-id event-id)
             (check-session-not-exists session-storage event-id)
             (check-model-id model-id)
-            (check-model-exists storage model-id)
-            (let [model (model/get-model storage model-id)]
-              (session/create! session-storage model event-id)
+            (check-model-exists model-storage model-id)
+            (do
+              (session/create! session-storage model-storage model-id event-id)
               (success-response 201)))))
 
 (defn session-finalize

@@ -1,18 +1,28 @@
 (ns s-engine.web-test
   (:require [clojure.test :refer :all]
+            [clojure.java.io :as io]
             [com.stuartsierra.component :as component]
             [org.httpkit.client :as http]
             [cheshire.core :as json]
             [s-engine.web :refer :all]
             [s-engine.config :as c]
             [s-engine.system :as s]
-            [s-engine.session :as session])
-  (:import (java.net URLEncoder)))
+            [s-engine.session :as session]
+            [s-engine.storage.model :as model])
+  (:import (java.io File)))
+
+(def ^:const test-model-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
+(def ^:const test-model-id 1)
+
+(defn- load-test-model!
+  [{:keys [model-storage]}]
+  (let [file-bytes (model/read-bytes (File. test-model-file))]
+    (model/write! model-storage test-model-id file-bytes "test-model.xlsx")))
 
 (def system nil)
 
 (defn start-system []
-  (alter-var-root #'system (constantly (s/new-system @c/config)))
+  (alter-var-root #'system (constantly (s/new-system @c/config :test false)))
   (alter-var-root #'system component/start))
 
 (defn stop-system []
@@ -23,6 +33,7 @@
   (try
     (stop-system)
     (start-system)
+    (load-test-model! system)
     (f)
     (finally
       (stop-system))))
@@ -41,9 +52,6 @@
   [status body])
 
 (use-fixtures :each wrap-with-system)
-
-(def ^:const test-model "test/resources/AutoCalc_Soccer_EventLog.xlsx")
-(def ^:const test-model-id (URLEncoder/encode test-model))
 
 ;;
 ;; Utils test
@@ -79,11 +87,34 @@
          (-> (make-url "/invalid-url") http/get deref resp->status+body))
       "Should return 404"))
 
-(deftest session-create-test
-  (let [{:keys [session-storage]} system]
-    (session/create! session-storage {:file test-model} "2")
+(deftest model-upload-test
+  (let [{:keys [model-storage]} system]
+    (model/delete! model-storage test-model-id)
+    (is (= [201 ""]
+           (-> (make-url "/files/upload")
+               (http/post {:multipart [{:name "id" :content (str test-model-id)}
+                                       {:name     "file"
+                                        :content  (io/file test-model-file)
+                                        :filename "test-model.xlsx"}]})
+               (deref)
+               (resp->status+body))))
+    (is (true? (model/exists? model-storage test-model-id)))))
+
+(deftest model-delete-test
+  (let [{:keys [model-storage]} system]
     (is (= (resp->status+body error-404-fnf)
-           (-> (make-url "/files" "unknown-model" "1")
+           (-> (make-url "/files" Integer/MAX_VALUE)
+               http/delete deref resp->status+body)))
+    (is (= [204 ""]
+           (-> (make-url "/files" test-model-id)
+               http/delete deref resp->status+body)))
+    (is (false? (model/exists? model-storage test-model-id)))))
+
+(deftest session-create-test
+  (let [{:keys [session-storage model-storage]} system]
+    (session/create! session-storage model-storage test-model-id "2")
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" Integer/MAX_VALUE "1")
                http/post deref resp->status+body))
         "Model not found")
     (is (false? (session/exists? session-storage "1")))
@@ -99,12 +130,12 @@
     (is (true? (session/exists? session-storage "1")))))
 
 (deftest session-get-event-log-test
-  (let [{:keys [session-storage]} system]
+  (let [{:keys [model-storage session-storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1" "event-log")
                http/get deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage {:file test-model} "1")
+    (session/create! session-storage model-storage test-model-id "1")
     (is (= [200 {"data" [] "status" 200}]
            (-> (make-url "/files" test-model-id "1" "event-log")
                (http/get)
@@ -112,7 +143,7 @@
                (resp->status+json))))))
 
 (deftest session-append-event-test
-  (let [{:keys [session-storage]} system
+  (let [{:keys [model-storage session-storage]} system
         event {"EventType" "Goal"
                "min"       1.
                "sec"       1.
@@ -125,7 +156,7 @@
            (-> (make-url "/files" test-model-id "1" "event-log/append")
                http/post deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage {:file test-model} "1")
+    (session/create! session-storage model-storage test-model-id "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -155,7 +186,7 @@
                (resp->status+json))))))
 
 (deftest session-set-event-log-test
-  (let [{:keys [session-storage storage]} system
+  (let [{:keys [model-storage session-storage storage]} system
         event1 {"EventType" "Goal"
                 "min"       0
                 "sec"       0
@@ -176,7 +207,7 @@
            (-> (make-url "/files" test-model-id "1" "event-log/set")
                http/post deref resp->status+body))
         "Session does not exist")
-    (let [session (session/create! session-storage {:file test-model} "1")]
+    (let [session (session/create! session-storage model-storage test-model-id "1")]
       (session/append-event! session event1)
       (is (= [200 {"status" 200
                    "data"   [{"Market name" "MATCH_BETTING"
@@ -207,12 +238,12 @@
                  (resp->status+json)))))))
 
 (deftest session-get-settlements-test
-  (let [{:keys [session-storage]} system]
+  (let [{:keys [session-storage model-storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1" "settlements")
                http/get deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage {:file test-model} "1")
+    (session/create! session-storage model-storage test-model-id "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -228,12 +259,12 @@
                (resp->status+json))))))
 
 (deftest session-finalize-test
-  (let [{:keys [session-storage]} system]
+  (let [{:keys [model-storage session-storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1")
                http/delete deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage {:file test-model} "1")
+    (session/create! session-storage model-storage test-model-id "1")
     (is (= [404 {"errors" [{"code"    "FNF"
                             "message" "File not found"}]
                  "status" 404}]
