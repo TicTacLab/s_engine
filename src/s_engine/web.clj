@@ -14,7 +14,7 @@
             [cheshire.core :as json]
             [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
-            [s-engine.form :refer [upload-model-form]]
+            [s-engine.form :as form]
             [s-engine.storage.model :as model])
   (:import (org.eclipse.jetty.server Server)
            (clojure.lang ExceptionInfo)))
@@ -87,11 +87,18 @@
            ~@(interleave (repeat g) (map pstep forms))]
        ~g)))
 
-(defn check-upload-model-form
-  [problems]
-  (when problems
-    (log/info "Problems while parsing model upload form" problems)
-    error-400-mfp))
+(defn check-form-params
+  [params problems]
+  (cond
+    problems
+    (do
+      (log/info "Problems while parsing model upload form" problems)
+      error-400-mfp)
+
+    (nil? params)
+    (do
+      (log/info "Got no form params")
+      error-400-mfp)))
 
 (defn- check-event-id [e-id]
   (when (empty? e-id)
@@ -138,16 +145,30 @@
 ;; Routes
 ;;
 
+(defn- write-model! [model-storage model-id file file-name]
+  (let [file-bytes (model/read-bytes file)]
+    (model/write! model-storage model-id file-bytes file-name)))
+
 (defn model-upload
   [{{:keys [model-storage]} :web :as r}]
-  (let [[params problems] (safe-parse-request upload-model-form r)]
-    (resp-> (check-upload-model-form problems)
-            (check-model-id (:id params))
-            (let [{:keys [id file]} params
-                  {:keys [filename tempfile]} file
-                  file-bytes (model/read-bytes tempfile)]
-              (model/write! model-storage id file-bytes filename)
+  (let [[params problems] (safe-parse-request form/upload-model-form r)
+        model-id (try-string->json (:id params))]
+    (resp-> (check-form-params params problems)
+            (check-model-id model-id)
+            (let [{:keys [filename tempfile]} (:file params)]
+              (write-model! model-storage model-id tempfile filename)
               (success-response 201)))))
+
+(defn model-replace
+  [{{:keys [model-id]} :params
+    {:keys [model-storage]} :web :as r}]
+  (let [[form-params problems] (safe-parse-request form/replace-model-form r)
+        model-id (try-string->json model-id)]
+    (resp-> (check-model-exists model-storage model-id)
+            (check-form-params form-params problems)
+            (let [{:keys [filename tempfile]} (:file form-params)]
+              (write-model! model-storage model-id tempfile filename)
+              (success-response 204)))))
 
 (defn model-delete
   [{params :params
@@ -217,6 +238,7 @@
 
 (defroutes routes
            (POST "/files/upload" req (model-upload req))
+           (POST "/files/:model-id" req (model-replace req))
            (DELETE "/files/:model-id" req (model-delete req))
 
            (POST "/files/:model-id/:event-id" req (session-create req))

@@ -22,7 +22,7 @@
 (def system nil)
 
 (defn start-system []
-  (alter-var-root #'system (constantly (s/new-system @c/config :test false)))
+  (alter-var-root #'system (constantly (s/new-system @c/config :test true)))
   (alter-var-root #'system component/start))
 
 (defn stop-system []
@@ -90,6 +90,26 @@
 (deftest model-upload-test
   (let [{:keys [model-storage]} system]
     (model/delete! model-storage test-model-id)
+    (is (= (resp->status+body error-400-mfp)
+           (-> (make-url "/files/upload")
+               (http/post {:multipart []})
+               (deref)
+               (resp->status+body)))
+        "No form data given")
+    (is (= (resp->status+body error-400-mfp)
+           (-> (make-url "/files/upload")
+               (http/post {:multipart [{:name "id" :content (str test-model-id)}]})
+               (deref)
+               (resp->status+body)))
+        "No file given")
+    (is (= (resp->status+body error-400-mfp)
+           (-> (make-url "/files/upload")
+               (http/post {:multipart [{:name     "file"
+                                        :content  (io/file test-model-file)
+                                        :filename "test-model.xlsx"}]})
+               (deref)
+               (resp->status+body)))
+        "No model id given")
     (is (= [201 ""]
            (-> (make-url "/files/upload")
                (http/post {:multipart [{:name "id" :content (str test-model-id)}
@@ -97,8 +117,36 @@
                                         :content  (io/file test-model-file)
                                         :filename "test-model.xlsx"}]})
                (deref)
-               (resp->status+body))))
+               (resp->status+body)))
+        "Created model succesfully")
     (is (true? (model/exists? model-storage test-model-id)))))
+
+(deftest model-replace-test
+  (let [{:keys [model-storage]} system]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" Integer/MAX_VALUE)
+               (http/post {:multipart [{:name "file"
+                                        :content (io/file test-model-file)
+                                        :filename "test-model.xlsx"}]})
+               (deref)
+               (resp->status+body)))
+        "Model does not exist")
+    (is (= (resp->status+body error-400-mfp)
+           (-> (make-url "/files" test-model-id)
+               (http/post {:multipart []})
+               (deref)
+               (resp->status+body)))
+        "No file given")
+    (is (= [204 ""]
+           (-> (make-url "/files" test-model-id)
+               (http/post {:multipart [{:name "file"
+                                        :content (io/file test-model-file)
+                                        :filename "new-model.xlsx"}]})
+               (deref)
+               (resp->status+body))))
+    (is (= "new-model.xlsx"
+           (:file-name (model/get-one model-storage test-model-id)))
+        "Replaced model succesfully")))
 
 (deftest model-delete-test
   (let [{:keys [model-storage]} system]
