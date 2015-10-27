@@ -30,8 +30,9 @@
     (cql/delete conn "sengine_models"
                 (where [[= :id model-id]]))))
 
-(defn model-exists? [storage model-id]
-  (let [{:keys [conn]} storage]
+(defn exists? [storage model-id]
+  (.exists ^File (File. model-id))
+  #_(let [{:keys [conn]} storage]
     (seq (cql/select conn "models"
                      (columns :id)
                      (where [[= :id model-id]])
@@ -60,7 +61,7 @@
       (let [event-name (get row event-type-column)
             attr-name (get row event-type-attr-column)
             attr-val (get row event-type-value-column)]
-        (if (= attr-name "")
+        (if (empty? attr-name)
           acc
           (update-in acc [event-name attr-name] (fnil conj #{}) attr-val))))
     {}
@@ -78,7 +79,7 @@
   [model-wb event]
   (let [{event-type "EventType" :strs [min sec]} event]
     (and (contains? (:event-types model-wb) event-type)
-         (every? identity [min sec])
+         min sec
          (valid-event-attrs? model-wb event))))
 
 (defn clear-event-log! [model-wb]
