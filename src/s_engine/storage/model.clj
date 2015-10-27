@@ -51,18 +51,6 @@
        (map #(get % event-type-attr-column))
        distinct))
 
-#_(defn get-column-order [rows]
-  (second
-    (reduce
-      (fn [[colls-set result] row]
-        (let [col-name (get row event-type-attr-column)]
-          (if (contains? colls-set col-name)
-            [colls-set result]
-            [(conj colls-set col-name)
-             (conj result col-name)])))
-      [#{} []]
-      rows)))
-
 (defn get-event-types [rows]
   "Returns attributes of event types in workbook:
   {(Event type name) {(Attribute name) #{(Possible values)}}
