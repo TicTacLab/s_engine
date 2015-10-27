@@ -1,8 +1,10 @@
 (ns s-engine.storage.model
   (:import (java.io File)
            (java.nio.file Paths Files)
-           (org.apache.poi.ss.usermodel Workbook))
+           (org.apache.poi.ss.usermodel Workbook)
+           (com.datastax.driver.core.utils Bytes))
   (:require [malcolmx.core :as mx]
+            [com.stuartsierra.component :as component]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]))
 
@@ -18,28 +20,55 @@
 ;; Persistense
 ;;
 
-(defn write-model!
-  [storage model-id tempfile filename]
-  (let [file-bytes (Files/readAllBytes (Paths/get (.toURI ^File tempfile)))
-        {:keys [conn]} storage
-        model {:id model-id, :name filename, :file file-bytes}]
-    (cql/insert conn "sengine_models" model)))
+(def ^:private table-name "sengine_models")
 
-(defn delete-model! [storage model-id]
-  (let [{:keys [conn]} storage]
-    (cql/delete conn "sengine_models"
+(defrecord Model [id file file-name])
+
+(defn- row->model [row]
+  (->Model (:id row)
+           (Bytes/getArray (:file row))
+           (:file_name row)))
+
+(defrecord ModelStorage [storage]
+  component/Lifecycle
+  (start [component] component)
+  (stop [component] component))
+
+(defn exists?
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))]
+    (boolean (seq (cql/select conn table-name
+                              (columns :id)
+                              (where [[= :id model-id]])
+                              (limit 1))))))
+
+(defn write!
+  [model-storage model-id file-bytes filename]
+  (let [conn (:conn (:storage model-storage))
+        model {:id model-id, :file_name filename, :file file-bytes}]
+    (cql/insert conn table-name model)))
+
+(defn delete!
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))]
+    (cql/delete conn table-name
                 (where [[= :id model-id]]))))
 
-(defn exists? [storage model-id]
-  (.exists ^File (File. model-id))
-  #_(let [{:keys [conn]} storage]
-    (seq (cql/select conn "models"
-                     (columns :id)
-                     (where [[= :id model-id]])
-                     (limit 1)))))
+(defn get-one
+  "Retrieves model from storage, returns nil if not found"
+  [model-storage model-id]
+  (let [conn (:conn (:storage model-storage))
+        row (first (cql/select conn table-name
+                               (columns :id :file :file_name)
+                               (where [[= :id model-id]])))]
+    (when row
+      (row->model row))))
 
-(defn get-model [storage model-id]
-  {:id model-id :file model-id})
+(defn new-model-storage []
+  (map->ModelStorage {}))
+
+(defn read-bytes [^File file]
+  (Files/readAllBytes (Paths/get (.toURI file))))
 
 ;;
 ;; ModelWorkbook

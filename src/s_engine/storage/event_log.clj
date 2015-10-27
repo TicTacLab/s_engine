@@ -3,7 +3,7 @@
             [clojurewerkz.cassaforte.query :refer
              [append where columns]]))
 
-(def ^:const event-log-table "event_log" )
+(def ^:const event-log-table "event_log")
 
 (defn fetch [storage event-id]
   {:pre [(string? event-id)]

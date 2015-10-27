@@ -1,29 +1,64 @@
 (ns s-engine.session-test
   (:require [clojure.test :refer :all]
             [s-engine.session :refer :all]
-            [com.stuartsierra.component :as component]))
+            [com.stuartsierra.component :as component]
+            [s-engine.storage.model :as model]
+            [s-engine.system :as s]
+            [s-engine.config :as c])
+  (:import (java.io File)))
 
-(def ^:const test-workbook "test/resources/AutoCalc_Soccer_EventLog.xlsx")
+;;
+;; Setup
+;;
 
-(defn make-storage []
-  (-> (new-session-storage)
-      (component/start)))
+(def ^:const test-model-id 1)
+(def ^:const test-model-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
+
+(defn- load-test-model!
+  [{:keys [model-storage]}]
+  (let [file-bytes (model/read-bytes (File. test-model-file))]
+    (model/write! model-storage test-model-id file-bytes "test-model.xlsx")))
+
+(def system nil)
+
+(defn start-system []
+  (alter-var-root #'system (constantly (s/new-system @c/config)))
+  (alter-var-root #'system component/start))
+
+(defn stop-system []
+  (when system
+    (alter-var-root #'system component/stop)))
+
+(defn wrap-with-system [f]
+  (try
+    (stop-system)
+    (start-system)
+    (load-test-model! system)
+    (f)
+    (finally
+      (stop-system))))
+
+(use-fixtures :each wrap-with-system)
+
+;;
+;; Tests
+;;
 
 (deftest create-test
-  (let [storage (make-storage)
-        session (create! storage {:id "model1", :file test-workbook} "session1")]
+  (let [{:keys [session-storage model-storage]} system
+        session (create! session-storage model-storage test-model-id "session1")]
     (is (= session
-           (get @(:session-table storage) "session1")))))
+           (get @(:session-table session-storage) "session1")))))
 
 (deftest get-one-test
-  (let [storage (make-storage)
-        session (create! storage {:id "model1", :file test-workbook} "session1")]
+  (let [{:keys [session-storage model-storage]} system
+        session (create! session-storage model-storage test-model-id "session1")]
     (is (= session
-           (get-one storage "session1")))))
+           (get-one session-storage "session1")))))
 
 (deftest append-event-test
-  (let [storage (make-storage)
-        session (create! storage {:id "model1", :file test-workbook} "session1")
+  (let [{:keys [session-storage model-storage]} system
+        session (create! session-storage model-storage test-model-id "session1")
         event {"EventType"  "Goal"
                "min"        0.
                "sec"        0.
@@ -38,8 +73,8 @@
            (get-events session)))))
 
 (deftest get-events-test
-  (let [storage (make-storage)
-        session (create! storage {:id "model1", :file test-workbook} "session1")
+  (let [{:keys [session-storage model-storage]} system
+        session (create! session-storage model-storage test-model-id "session1")
         event1 {"EventType"  "Goal"
                 "min"        0.
                 "sec"        0.
@@ -66,7 +101,7 @@
       (is (= [event1 event2] (get-events session))))))
 
 (deftest set-events!-test
-  (let [storage (make-storage)
+  (let [{:keys [session-storage model-storage]} system
         event1 {"EventType"  "Goal"
                 "min"        0.
                 "sec"        0.
@@ -85,15 +120,15 @@
                 "BodyPart"   "Head"
                 "Accidental" "OwnGoal"
                 "Action"     ""}
-        session (create! storage {:id "model1", :file test-workbook} "session1")]
+        session (create! session-storage model-storage test-model-id "session1")]
     (append-event! session event1)
     (set-events! session [event2])
     (is (= [event2]
            (get-events session)))))
 
 (deftest get-out-test
-  (let [storage (make-storage)
-        session (create! storage {:id "model1", :file test-workbook} "session1")]
+  (let [{:keys [session-storage model-storage]} system
+        session (create! session-storage model-storage test-model-id "session1")]
     (is (= [{"Market name" "MATCH_BETTING"
              "Outcome" "HOME"
              "Calc" "lose"}
