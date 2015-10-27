@@ -15,9 +15,9 @@
 (def ^:const test-model-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
 
 (defn- load-test-model!
-  [{:keys [model-storage]}]
+  [{:keys [storage]}]
   (let [file-bytes (model/read-bytes (File. test-model-file))]
-    (model/write! model-storage test-model-id file-bytes "test-model.xlsx")))
+    (model/write! storage test-model-id file-bytes "test-model.xlsx")))
 
 (def system nil)
 
@@ -45,20 +45,20 @@
 ;;
 
 (deftest create-test
-  (let [{:keys [session-storage model-storage]} system
-        session (create! session-storage model-storage test-model-id "session1")]
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")]
     (is (= session
            (get @(:session-table session-storage) "session1")))))
 
 (deftest get-one-test
-  (let [{:keys [session-storage model-storage]} system
-        session (create! session-storage model-storage test-model-id "session1")]
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")]
     (is (= session
            (get-one session-storage "session1")))))
 
 (deftest append-event-test
-  (let [{:keys [session-storage model-storage]} system
-        session (create! session-storage model-storage test-model-id "session1")
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")
         event {"EventType"  "Goal"
                "min"        0.
                "sec"        0.
@@ -73,8 +73,8 @@
            (get-events session)))))
 
 (deftest get-events-test
-  (let [{:keys [session-storage model-storage]} system
-        session (create! session-storage model-storage test-model-id "session1")
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")
         event1 {"EventType"  "Goal"
                 "min"        0.
                 "sec"        0.
@@ -101,7 +101,7 @@
       (is (= [event1 event2] (get-events session))))))
 
 (deftest set-events!-test
-  (let [{:keys [session-storage model-storage]} system
+  (let [{:keys [session-storage storage]} system
         event1 {"EventType"  "Goal"
                 "min"        0.
                 "sec"        0.
@@ -120,15 +120,15 @@
                 "BodyPart"   "Head"
                 "Accidental" "OwnGoal"
                 "Action"     ""}
-        session (create! session-storage model-storage test-model-id "session1")]
+        session (create! session-storage storage test-model-id "session1")]
     (append-event! session event1)
     (set-events! session [event2])
     (is (= [event2]
            (get-events session)))))
 
 (deftest get-out-test
-  (let [{:keys [session-storage model-storage]} system
-        session (create! session-storage model-storage test-model-id "session1")]
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")]
     (is (= [{"Market name" "MATCH_BETTING"
              "Outcome" "HOME"
              "Calc" "lose"}

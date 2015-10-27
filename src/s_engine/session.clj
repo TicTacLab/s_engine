@@ -7,8 +7,8 @@
 (defrecord Session [id model-wb model-id])
 
 (defn create!
-  [session-storage model-storage model-id session-id]
-  (let [model (model/get-one model-storage model-id)
+  [session-storage storage model-id session-id]
+  (let [model (model/get-one storage model-id)
         model-wb (model/model-workbook model)
         session (->Session session-id model-wb (:id model))]
     (swap! (:session-table session-storage) assoc session-id session)

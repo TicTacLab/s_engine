@@ -29,43 +29,35 @@
            (Bytes/getArray (:file row))
            (:file_name row)))
 
-(defrecord ModelStorage [storage]
-  component/Lifecycle
-  (start [component] component)
-  (stop [component] component))
-
 (defn exists?
-  [model-storage model-id]
-  (let [conn (:conn (:storage model-storage))]
+  [storage model-id]
+  (let [{:keys [conn]} storage]
     (boolean (seq (cql/select conn table-name
                               (columns :id)
                               (where [[= :id model-id]])
                               (limit 1))))))
 
 (defn write!
-  [model-storage model-id file-bytes filename]
-  (let [conn (:conn (:storage model-storage))
+  [storage model-id file-bytes filename]
+  (let [{:keys [conn]} storage
         model {:id model-id, :file_name filename, :file file-bytes}]
     (cql/insert conn table-name model)))
 
 (defn delete!
-  [model-storage model-id]
-  (let [conn (:conn (:storage model-storage))]
+  [storage model-id]
+  (let [{:keys [conn]} storage]
     (cql/delete conn table-name
                 (where [[= :id model-id]]))))
 
 (defn get-one
   "Retrieves model from storage, returns nil if not found"
-  [model-storage model-id]
-  (let [conn (:conn (:storage model-storage))
+  [storage model-id]
+  (let [{:keys [conn]} storage
         row (first (cql/select conn table-name
                                (columns :id :file :file_name)
                                (where [[= :id model-id]])))]
     (when row
       (row->model row))))
-
-(defn new-model-storage []
-  (map->ModelStorage {}))
 
 (defn read-bytes [^File file]
   (Files/readAllBytes (Paths/get (.toURI file))))

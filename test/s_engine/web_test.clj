@@ -15,9 +15,9 @@
 (def ^:const test-model-id 1)
 
 (defn- load-test-model!
-  [{:keys [model-storage]}]
+  [{:keys [storage]}]
   (let [file-bytes (model/read-bytes (File. test-model-file))]
-    (model/write! model-storage test-model-id file-bytes "test-model.xlsx")))
+    (model/write! storage test-model-id file-bytes "test-model.xlsx")))
 
 (def system nil)
 
@@ -88,8 +88,8 @@
       "Should return 404"))
 
 (deftest model-upload-test
-  (let [{:keys [model-storage]} system]
-    (model/delete! model-storage test-model-id)
+  (let [{:keys [storage]} system]
+    (model/delete! storage test-model-id)
     (is (= (resp->status+body error-400-mfp)
            (-> (make-url "/files/upload")
                (http/post {:multipart []})
@@ -119,10 +119,10 @@
                (deref)
                (resp->status+body)))
         "Created model succesfully")
-    (is (true? (model/exists? model-storage test-model-id)))))
+    (is (true? (model/exists? storage test-model-id)))))
 
 (deftest model-replace-test
-  (let [{:keys [model-storage]} system]
+  (let [{:keys [storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" Integer/MAX_VALUE)
                (http/post {:multipart [{:name "file"
@@ -145,22 +145,22 @@
                (deref)
                (resp->status+body))))
     (is (= "new-model.xlsx"
-           (:file-name (model/get-one model-storage test-model-id)))
+           (:file-name (model/get-one storage test-model-id)))
         "Replaced model succesfully")))
 
 (deftest model-delete-test
-  (let [{:keys [model-storage]} system]
+  (let [{:keys [storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" Integer/MAX_VALUE)
                http/delete deref resp->status+body)))
     (is (= [204 ""]
            (-> (make-url "/files" test-model-id)
                http/delete deref resp->status+body)))
-    (is (false? (model/exists? model-storage test-model-id)))))
+    (is (false? (model/exists? storage test-model-id)))))
 
 (deftest session-create-test
-  (let [{:keys [session-storage model-storage]} system]
-    (session/create! session-storage model-storage test-model-id "2")
+  (let [{:keys [session-storage storage]} system]
+    (session/create! session-storage storage test-model-id "2")
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" Integer/MAX_VALUE "1")
                http/post deref resp->status+body))
@@ -178,12 +178,12 @@
     (is (true? (session/exists? session-storage "1")))))
 
 (deftest session-get-event-log-test
-  (let [{:keys [model-storage session-storage]} system]
+  (let [{:keys [storage session-storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1" "event-log")
                http/get deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage model-storage test-model-id "1")
+    (session/create! session-storage storage test-model-id "1")
     (is (= [200 {"data" [] "status" 200}]
            (-> (make-url "/files" test-model-id "1" "event-log")
                (http/get)
@@ -191,7 +191,7 @@
                (resp->status+json))))))
 
 (deftest session-append-event-test
-  (let [{:keys [model-storage session-storage]} system
+  (let [{:keys [storage session-storage]} system
         event {"EventType" "Goal"
                "min"       1.
                "sec"       1.
@@ -204,7 +204,7 @@
            (-> (make-url "/files" test-model-id "1" "event-log/append")
                http/post deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage model-storage test-model-id "1")
+    (session/create! session-storage storage test-model-id "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -234,7 +234,7 @@
                (resp->status+json))))))
 
 (deftest session-set-event-log-test
-  (let [{:keys [model-storage session-storage storage]} system
+  (let [{:keys [storage session-storage storage]} system
         event1 {"EventType" "Goal"
                 "min"       0
                 "sec"       0
@@ -255,7 +255,7 @@
            (-> (make-url "/files" test-model-id "1" "event-log/set")
                http/post deref resp->status+body))
         "Session does not exist")
-    (let [session (session/create! session-storage model-storage test-model-id "1")]
+    (let [session (session/create! session-storage storage test-model-id "1")]
       (session/append-event! session event1)
       (is (= [200 {"status" 200
                    "data"   [{"Market name" "MATCH_BETTING"
@@ -286,12 +286,12 @@
                  (resp->status+json)))))))
 
 (deftest session-get-settlements-test
-  (let [{:keys [session-storage model-storage]} system]
+  (let [{:keys [session-storage storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1" "settlements")
                http/get deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage model-storage test-model-id "1")
+    (session/create! session-storage storage test-model-id "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -307,12 +307,12 @@
                (resp->status+json))))))
 
 (deftest session-finalize-test
-  (let [{:keys [model-storage session-storage]} system]
+  (let [{:keys [storage session-storage]} system]
     (is (= (resp->status+body error-404-fnf)
            (-> (make-url "/files" test-model-id "1")
                http/delete deref resp->status+body))
         "Session does not exist")
-    (session/create! session-storage model-storage test-model-id "1")
+    (session/create! session-storage storage test-model-id "1")
     (is (= [404 {"errors" [{"code"    "FNF"
                             "message" "File not found"}]
                  "status" 404}]

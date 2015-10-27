@@ -122,8 +122,8 @@
     (log/info "Session with id already created" s-id)
     error-400-mfp))
 
-(defn- check-model-exists [model-storage m-id]
-  (when-not (model/exists? model-storage m-id)
+(defn- check-model-exists [storage m-id]
+  (when-not (model/exists? storage m-id)
     (log/info "Model with id not found" m-id)
     error-404-fnf))
 
@@ -147,39 +147,39 @@
 ;; Routes
 ;;
 
-(defn- write-model! [model-storage model-id file file-name]
+(defn- write-model! [storage model-id file file-name]
   (let [file-bytes (model/read-bytes file)]
-    (model/write! model-storage model-id file-bytes file-name)))
+    (model/write! storage model-id file-bytes file-name)))
 
 (defn model-upload
-  [{{:keys [model-storage]} :web :as r}]
+  [{{:keys [storage]} :web :as r}]
   (let [[params problems] (safe-parse-request form/upload-model-form r)
         model-id (try-string->json (:id params))]
     (resp-> (check-form-params params problems)
             (check-model-id model-id)
             (let [{:keys [filename tempfile]} (:file params)]
-              (write-model! model-storage model-id tempfile filename)
+              (write-model! storage model-id tempfile filename)
               (success-response 201)))))
 
 (defn model-replace
   [{{:keys [model-id]} :params
-    {:keys [model-storage]} :web :as r}]
+    {:keys [storage]}  :web :as r}]
   (let [[form-params problems] (safe-parse-request form/replace-model-form r)
         model-id (try-string->json model-id)]
-    (resp-> (check-model-exists model-storage model-id)
+    (resp-> (check-model-exists storage model-id)
             (check-form-params form-params problems)
             (let [{:keys [filename tempfile]} (:file form-params)]
-              (write-model! model-storage model-id tempfile filename)
+              (write-model! storage model-id tempfile filename)
               (success-response 204)))))
 
 (defn model-delete
-  [{params :params
-    {:keys [model-storage]}  :web}]
+  [{params             :params
+    {:keys [storage]}  :web}]
   (let [model-id (try-string->json (:model-id params))]
     (resp-> (check-model-id model-id)
-            (check-model-exists model-storage model-id)
+            (check-model-exists storage model-id)
             (do
-              (model/delete! model-storage model-id)
+              (model/delete! storage model-id)
               (success-response 204)))))
 
 (defn fetch-log-if-exists [storage session]
@@ -191,13 +191,13 @@
 
 (defn session-create
   [{{:keys [event-id] :as params}     :params
-    {:keys [session-storage model-storage storage]} :web}]
+    {:keys [session-storage storage]} :web}]
   (let [model-id (try-string->json (:model-id params))]
     (resp-> (check-event-id event-id)
             (check-session-not-exists session-storage event-id)
             (check-model-id model-id)
-            (check-model-exists model-storage model-id)
-            (let [session (session/create! session-storage model-storage model-id  event-id)]
+            (check-model-exists storage model-id)
+            (let [session (session/create! session-storage storage model-id event-id)]
               (fetch-log-if-exists storage session)
               (success-response 201)))))
 
@@ -219,7 +219,7 @@
                (success-response 200))))
 
 (defn session-append-event
-  [{{:keys [event-id]}        :params
+  [{{:keys [event-id]}                :params
     {:keys [session-storage storage]} :web :as r}]
   (let [events-str (req/body-string r)
         events (try-string->json events-str)]
@@ -231,7 +231,7 @@
               (success-response 200 (session/get-out session))))))
 
 (defn session-set-event-log
-  [{{:keys [event-id]}        :params
+  [{{:keys [event-id]}                :params
     {:keys [session-storage storage]} :web :as r}]
   (let [events-str (req/body-string r)
         events (try-string->json events-str)]
