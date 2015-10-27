@@ -43,14 +43,16 @@
 (def ^:const test-model-id (URLEncoder/encode test-model))
 
 (deftest session-get-event-log-test
-  (is (= [200 {"data" [] "status" 200}]
-         (-> (make-url "/files" test-model-id 1 "event-log")
-             (http/get)
-             (deref)
-             (resp->status+body)))))
+  (let [{:keys [session-storage]} system]
+    (session/create! session-storage {:file test-model} "1")
+    (is (= [200 {"data" [] "status" 200}]
+           (-> (make-url "/files" test-model-id 1 "event-log")
+               (http/get)
+               (deref)
+               (resp->status+body))))))
 
 (deftest session-append-event-test
-  (let [{:keys [session-storage storage]} system
+  (let [{:keys [session-storage]} system
         event {"EventType" "Goal"
                "min"       1.
                "sec"       1.
@@ -58,8 +60,8 @@
                "GamePart"  "Half1"
                "Standart"  "Corner"
                "BodyPart"  "Head"
-               "Accidental" "OwnGoal"}
-        _ (session/get-or-create! session-storage storage test-model "1")]
+               "Accidental" "OwnGoal"}]
+    (session/create! session-storage {:file test-model} "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -106,7 +108,7 @@
                 "Standart"  "Corner"
                 "BodyPart"  "Head"
                 "Accidental" "OwnGoal"}
-        session (session/get-or-create! session-storage storage test-model 1)]
+        session (session/get-or-create! session-storage storage test-model "1")]
     (session/append-event! session event1)
     (is (= [200 {"status" 200
                  "data" [{"Market name" "MATCH_BETTING"
@@ -154,9 +156,11 @@
                (resp->status+body))))))
 
 (deftest session-finalize-test
-  (let [{:keys [session-storage storage]} system
-        _ (session/get-or-create! session-storage storage test-model 1)]
-    (is (= [204 nil]
+  (let [{:keys [session-storage]} system]
+    (session/create! session-storage {:file test-model} "1")
+    (is (= [404 {"errors" [{"code"    "FNF"
+                            "message" "File not found"}]
+                 "status" 404}]
            (-> (make-url "/files" test-model-id 2)
                (http/delete) (deref)
                (resp->status+body)))

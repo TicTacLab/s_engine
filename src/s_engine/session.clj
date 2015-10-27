@@ -18,6 +18,10 @@
   [session-storage session-id]
   (get @(:session-table session-storage) session-id nil))
 
+(defn exists?
+  [session-storage session-id]
+  (contains? @(:session-table session-storage) session-id))
+
 (defn get-or-create!
   [session-storage storage model-id session-id]
   (if-let [session (get-one session-storage session-id)]

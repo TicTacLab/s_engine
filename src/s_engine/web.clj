@@ -24,18 +24,18 @@
 
 (defn success-response
   ([status]
-    (success-response status nil))
+   (success-response status nil))
   ([status json-body]
    {:status status
     :body   (when json-body
               (json/generate-string {:status status
-                                     :data json-body}))}))
+                                     :data   json-body}))}))
 
 (defn error-response [status code message]
   {:status status
-   :body (json/generate-string {:status status
-                                :errors [{:code code
-                                          :message message}]})})
+   :body   (json/generate-string {:status status
+                                  :errors [{:code    code
+                                            :message message}]})})
 
 (def error-400-mfp (error-response 400 "MFP" "Malformed body"))
 (def error-404-fnf (error-response 404 "FNF" "File not found"))
@@ -48,9 +48,6 @@
     (json/parse-string value false)
     (catch Exception _
       value)))
-
-(defn settlement-handler [req]
-  req)
 
 (defn wrap-with-web [h web]
   (fn [req]
@@ -71,6 +68,53 @@
         (log/error e "while request handling")
         error-500-ise))))
 
+(defmacro resp->
+  "Evaluates forms sequentially and returns first valid response.
+  Does not inserts result of previous form as second item in next form."
+  [expr & forms]
+  (let [g (gensym)
+        pstep (fn [step] `(if (nil? (:status ~g)) ~step ~g))]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (map pstep forms))]
+       ~g)))
+
+(defn- check-event-id [e-id]
+  (when (empty? e-id)
+    (log/info "Invalid event id" e-id)
+    error-400-mfp))
+
+(defn- check-model-id [m-id]
+  (when (empty? m-id)
+    (log/info "Invalid event id" m-id)
+    error-400-mfp))
+
+(defn- check-session-exists [session-storage s-id]
+  (when-not (session/exists? session-storage s-id)
+    (log/info "Session with id not found" s-id)
+    error-404-fnf))
+
+(defn check-session-not-exists [session-storage s-id]
+  (when (session/exists? session-storage s-id)
+    (log/info "Session with id already created" s-id)
+    error-400-mfp))
+
+(defn- check-model-exists [storage m-id]
+  (when-not (model/model-exists? storage m-id)
+    (log/info "Model with id not found" m-id)
+    error-404-fnf))
+
+(def events-schema
+  [{(s/required-key "EventType") s/Str
+    (s/required-key "min")       s/Num
+    (s/required-key "sec")       s/Num
+    String s/Any}])
+
+(defn- check-valid-events [events-str]
+  (let [errors (s/check events-schema events-str)]
+    (when errors
+      (log/info "Events does not match schema" errors)
+      error-400-mfp)))
+
 ;;
 ;; Routes
 ;;
@@ -89,70 +133,78 @@
 (defn model-delete
   [{{:keys [model-id]} :params
     {:keys [storage]}  :web}]
-  (when (model/model-exists? storage model-id)
-    (model/delete-model! storage model-id))
-  (success-response 204 ""))
+  (resp-> (check-model-exists storage model-id)
+          (do
+            (model/delete-model! storage model-id)
+            (success-response 204))))
 
-(defn session-get-event-log
-  [{{:keys [model-id event-id]} :params
-    {:keys [session-storage storage]} :web}]
-  (let [session (session/get-or-create! session-storage storage model-id event-id)
-        events (session/get-events session)]
-    (success-response 200 events)))
-
-(defn session-append-event
-  [{{:keys [model-id event-id]} :params
-    {:keys [session-storage storage]} :web :as r}]
-  (let [event (try-string->json (req/body-string r))
-        session (session/get-or-create! session-storage storage model-id event-id)]
-    (if-not (session/valid-event? session event)
-      (do
-        (log/info "Event not valid" event)
-        error-400-mfp)
-      (do
-        (session/append-event! session event)
-        (success-response 200 (session/get-out session))))))
-
-(defn session-set-event-log
-  [{{:keys [model-id event-id]} :params
-    {:keys [session-storage storage]} :web :as r}]
-  (let [events (as-> (req/body-string r) $
-                     (try-string->json $))
-        session (session/get-or-create! session-storage storage model-id event-id)]
-    (if-not (every? #(session/valid-event? session %) events)
-      (do
-        (log/info "Events not valid" events)
-        error-400-mfp)
-      (do
-        (session/set-events! session events)
-        (success-response 200 (session/get-out session))))))
-
-(defn session-get-settlements
-  [{{:keys [model-id event-id]} :params
-    {:keys [session-storage storage]} :web}]
-  (let [session (session/get-or-create! session-storage storage model-id event-id)]
-    (->> (session/get-out session)
-         (success-response 200))))
+(defn session-create
+  [{{:keys [model-id event-id]}       :params
+    {:keys [storage session-storage]} :web}]
+  (resp-> (check-event-id event-id)
+          (check-session-not-exists session-storage event-id)
+          (check-model-id model-id)
+          (check-model-exists storage model-id)
+          (let [model (model/get-model storage model-id)]
+            (session/create! session-storage model event-id)
+            (success-response 201))))
 
 (defn session-finalize
-  [{{:keys [event-id]} :params
+  [{{:keys [event-id]}                :params
     {:keys [session-storage storage]} :web}]
-  (let [session (session/get-one session-storage event-id)]
-    (when session
-      (session/finalize session-storage storage session))
-    (success-response 204)))
+  (resp-> (check-session-exists session-storage event-id)
+          (let [session (session/get-one session-storage event-id)]
+            (session/finalize session-storage storage session)
+            (success-response 204))))
+
+(defn session-get-event-log
+  [{{:keys [event-id]}        :params
+    {:keys [session-storage]} :web}]
+  (resp-> (check-session-exists session-storage event-id)
+          (->> (session/get-one session-storage event-id)
+               (session/get-events)
+               (success-response 200))))
+
+(defn session-append-event
+  [{{:keys [event-id]}        :params
+    {:keys [session-storage]} :web :as r}]
+  (let [event (try-string->json (req/body-string r))]
+    (resp-> (check-session-exists session-storage event-id)
+            (check-valid-events [event])
+            (let [session (session/get-one session-storage event-id)]
+              (session/append-event! session event)
+              (success-response 200 (session/get-out session))))))
+
+(defn session-set-event-log
+  [{{:keys [event-id]}        :params
+    {:keys [session-storage]} :web :as r}]
+  (let [events (try-string->json (req/body-string r))]
+    (resp-> (check-session-exists session-storage event-id)
+            (check-valid-events events)
+            (let [session (session/get-one session-storage event-id)]
+              (session/set-events! session events)
+              (success-response 200 (session/get-out session))))))
+
+(defn session-get-settlements
+  [{{:keys [event-id]}        :params
+    {:keys [session-storage]} :web}]
+  (resp-> (check-session-exists session-storage event-id)
+          (->> (session/get-one session-storage event-id)
+               (session/get-out)
+               (success-response 200))))
 
 (defroutes routes
-  (POST "/files/upload" req (model-upload req))
-  (DELETE "/files/:model-id" req (model-delete req))
+           (POST "/files/upload" req (model-upload req))
+           (DELETE "/files/:model-id" req (model-delete req))
 
-  (GET "/files/:model-id/:event-id/event-log" req (session-get-event-log req))
-  (POST "/files/:model-id/:event-id/event-log/append" req (session-append-event req))
-  (POST "/files/:model-id/:event-id/event-log/set" req (session-set-event-log req))
-  (GET "/files/:model-id/:event-id/settlements" req (session-get-settlements req))
-  (DELETE "/files/:model-id/:event-id" req (session-finalize req))
+           (POST "/files/:model-id/:event-id" req (session-create req))
+           (DELETE "/files/:model-id/:event-id" req (session-finalize req))
+           (GET "/files/:model-id/:event-id/event-log" req (session-get-event-log req))
+           (POST "/files/:model-id/:event-id/event-log/append" req (session-append-event req))
+           (POST "/files/:model-id/:event-id/event-log/set" req (session-set-event-log req))
+           (GET "/files/:model-id/:event-id/settlements" req (session-get-settlements req))
 
-  (ANY "/*" _ error-404-rnf))
+           (ANY "/*" _ error-404-rnf))
 
 (defn app [web]
   (-> routes
@@ -167,8 +219,8 @@
   component/Lifecycle
 
   (start [component]
-    (let [srv (jetty/run-jetty (app component) {:port port
-                                                :host host
+    (let [srv (jetty/run-jetty (app component) {:port  port
+                                                :host  host
                                                 :join? false})]
       (log/info "Web service started at:" (str host ":" port))
       (assoc component :server srv)))
