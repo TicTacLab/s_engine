@@ -15,7 +15,8 @@
             [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
             [s-engine.form :refer [upload-model-form]]
-            [s-engine.storage.model :as model])
+            [s-engine.storage.model :as model]
+            [s-engine.storage.event-log :as event-log])
   (:import (org.eclipse.jetty.server Server)))
 
 ;;
@@ -140,6 +141,13 @@
             (model/delete-model! storage model-id)
             (success-response 204))))
 
+(defn fetch-log-if-exists [storage session]
+  (let [event-log (event-log/fetch storage (:id session))]
+    (when (not-empty event-log)
+      (->> event-log
+           (map #(try-string->json %))
+           (session/set-events! session)))))
+
 (defn session-create
   [{{:keys [event-id] :as params}     :params
     {:keys [storage session-storage]} :web}]
@@ -148,8 +156,9 @@
             (check-session-not-exists session-storage event-id)
             (check-model-id model-id)
             (check-model-exists storage model-id)
-            (let [model (model/get-model storage model-id)]
-              (session/create! session-storage model event-id)
+            (let [model (model/get-model storage model-id)
+                  session (session/create! session-storage model event-id)]
+              (fetch-log-if-exists storage session)
               (success-response 201)))))
 
 (defn session-finalize
@@ -157,6 +166,7 @@
     {:keys [session-storage storage]} :web}]
   (resp-> (check-session-exists session-storage event-id)
           (let [session (session/get-one session-storage event-id)]
+            (event-log/clear! storage (:id session))
             (session/finalize session-storage storage session)
             (success-response 204))))
 
@@ -170,21 +180,25 @@
 
 (defn session-append-event
   [{{:keys [event-id]}        :params
-    {:keys [session-storage]} :web :as r}]
-  (let [event (try-string->json (req/body-string r))]
+    {:keys [session-storage storage]} :web :as r}]
+  (let [events-str (req/body-string r)
+        events (try-string->json events-str)]
     (resp-> (check-session-exists session-storage event-id)
-            (check-valid-events [event])
+            (check-valid-events [events])
             (let [session (session/get-one session-storage event-id)]
-              (session/append-event! session event)
+              (event-log/append! storage (:id session) [events-str])
+              (session/append-event! session events)
               (success-response 200 (session/get-out session))))))
 
 (defn session-set-event-log
   [{{:keys [event-id]}        :params
-    {:keys [session-storage]} :web :as r}]
-  (let [events (try-string->json (req/body-string r))]
+    {:keys [session-storage storage]} :web :as r}]
+  (let [events-str (req/body-string r)
+        events (try-string->json events-str)]
     (resp-> (check-session-exists session-storage event-id)
             (check-valid-events events)
             (let [session (session/get-one session-storage event-id)]
+              (event-log/append! storage (:id session) [events-str])
               (session/set-events! session events)
               (success-response 200 (session/get-out session))))))
 
