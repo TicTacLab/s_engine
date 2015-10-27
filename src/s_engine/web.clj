@@ -69,7 +69,7 @@
         error-500-ise))))
 
 (defmacro resp->
-  "Evaluates forms sequentially and returns first valid response.
+  "Evaluates forms sequentially and returns first valid response. Returns last item if no response found.
   Does not inserts result of previous form as second item in next form."
   [expr & forms]
   (let [g (gensym)
@@ -84,9 +84,7 @@
     error-400-mfp))
 
 (defn- check-model-id [m-id]
-  (when (empty? m-id)
-    (log/info "Invalid event id" m-id)
-    error-400-mfp))
+  )
 
 (defn- check-session-exists [session-storage s-id]
   (when-not (session/exists? session-storage s-id)
@@ -99,7 +97,7 @@
     error-400-mfp))
 
 (defn- check-model-exists [storage m-id]
-  (when-not (model/model-exists? storage m-id)
+  (when-not (model/exists? storage m-id)
     (log/info "Model with id not found" m-id)
     error-404-fnf))
 
@@ -143,15 +141,16 @@
             (success-response 204))))
 
 (defn session-create
-  [{{:keys [model-id event-id]}       :params
+  [{{:keys [event-id] :as params}     :params
     {:keys [storage session-storage]} :web}]
-  (resp-> (check-event-id event-id)
-          (check-session-not-exists session-storage event-id)
-          (check-model-id model-id)
-          (check-model-exists storage model-id)
-          (let [model (model/get-model storage model-id)]
-            (session/create! session-storage model event-id)
-            (success-response 201))))
+  (let [model-id (try-string->json (:model-id params))]
+    (resp-> (check-event-id event-id)
+            (check-session-not-exists session-storage event-id)
+            (check-model-id model-id)
+            (check-model-exists storage model-id)
+            (let [model (model/get-model storage model-id)]
+              (session/create! session-storage model event-id)
+              (success-response 201)))))
 
 (defn session-finalize
   [{{:keys [event-id]}                :params

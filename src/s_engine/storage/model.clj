@@ -30,8 +30,9 @@
     (cql/delete conn "sengine_models"
                 (where [[= :id model-id]]))))
 
-(defn model-exists? [storage model-id]
-  (let [{:keys [conn]} storage]
+(defn exists? [storage model-id]
+  (.exists ^File (File. model-id))
+  #_(let [{:keys [conn]} storage]
     (seq (cql/select conn "models"
                      (columns :id)
                      (where [[= :id model-id]])
