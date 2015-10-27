@@ -100,9 +100,13 @@
 
 (deftest session-get-event-log-test
   (let [{:keys [session-storage]} system]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" test-model-id "1" "event-log")
+               http/get deref resp->status+body))
+        "Session does not exist")
     (session/create! session-storage {:file test-model} "1")
     (is (= [200 {"data" [] "status" 200}]
-           (-> (make-url "/files" test-model-id 1 "event-log")
+           (-> (make-url "/files" test-model-id "1" "event-log")
                (http/get)
                (deref)
                (resp->status+json))))))
@@ -117,6 +121,10 @@
                "Standart"  "Corner"
                "BodyPart"  "Head"
                "Accidental" "OwnGoal"}]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" test-model-id "1" "event-log/append")
+               http/post deref resp->status+body))
+        "Session does not exist")
     (session/create! session-storage {:file test-model} "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
@@ -163,40 +171,48 @@
                 "GamePart"  "Half1"
                 "Standart"  "Corner"
                 "BodyPart"  "Head"
-                "Accidental" "OwnGoal"}
-        session (session/get-or-create! session-storage storage test-model "1")]
-    (session/append-event! session event1)
-    (is (= [200 {"status" 200
-                 "data" [{"Market name" "MATCH_BETTING"
-                          "Outcome" "HOME"
-                          "Calc" "lose"}
-                         {"Market name" "MATCH_BETTING"
-                          "Outcome" "DRAW"
-                          "Calc" "lose"}
-                         {"Market name" "MATCH_BETTING"
-                          "Outcome" "AWAY"
-                          "Calc" "win"}]}]
-           (-> (make-url "/files" test-model-id 1 "event-log/set")
-               (http/post {:body (json/generate-string [event2])})
-               (deref)
-               (resp->status+json))))
-    (is (= [200 {"status" 200
-                 "data"   [{"EventType"  "Goal"
-                            "min"        1.0
-                            "sec"        1.0
-                            "Team"       "Team2"
-                            "GamePart"   "Half1"
-                            "Standart"   "Corner"
-                            "BodyPart"   "Head"
-                            "Accidental" "OwnGoal"
-                            "Action"     ""}]}]
-           (-> (make-url "/files" test-model-id 1 "event-log")
-               (http/get) (deref)
-               (resp->status+json))))))
+                "Accidental" "OwnGoal"}]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" test-model-id "1" "event-log/set")
+               http/post deref resp->status+body))
+        "Session does not exist")
+    (let [session (session/create! session-storage {:file test-model} "1")]
+      (session/append-event! session event1)
+      (is (= [200 {"status" 200
+                   "data"   [{"Market name" "MATCH_BETTING"
+                              "Outcome"     "HOME"
+                              "Calc"        "lose"}
+                             {"Market name" "MATCH_BETTING"
+                              "Outcome"     "DRAW"
+                              "Calc"        "lose"}
+                             {"Market name" "MATCH_BETTING"
+                              "Outcome"     "AWAY"
+                              "Calc"        "win"}]}]
+             (-> (make-url "/files" test-model-id 1 "event-log/set")
+                 (http/post {:body (json/generate-string [event2])})
+                 (deref)
+                 (resp->status+json))))
+      (is (= [200 {"status" 200
+                   "data"   [{"EventType"  "Goal"
+                              "min"        1.0
+                              "sec"        1.0
+                              "Team"       "Team2"
+                              "GamePart"   "Half1"
+                              "Standart"   "Corner"
+                              "BodyPart"   "Head"
+                              "Accidental" "OwnGoal"
+                              "Action"     ""}]}]
+             (-> (make-url "/files" test-model-id 1 "event-log")
+                 (http/get) (deref)
+                 (resp->status+json)))))))
 
 (deftest session-get-settlements-test
-  (let [{:keys [session-storage storage]} system
-        _ (session/get-or-create! session-storage storage test-model "1")]
+  (let [{:keys [session-storage]} system]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" test-model-id "1" "settlements")
+               http/get deref resp->status+body))
+        "Session does not exist")
+    (session/create! session-storage {:file test-model} "1")
     (is (= [200 {"status" 200
                  "data"   [{"Market name" "MATCH_BETTING"
                             "Outcome" "HOME"
@@ -213,6 +229,10 @@
 
 (deftest session-finalize-test
   (let [{:keys [session-storage]} system]
+    (is (= (resp->status+body error-404-fnf)
+           (-> (make-url "/files" test-model-id "1")
+               http/delete deref resp->status+body))
+        "Session does not exist")
     (session/create! session-storage {:file test-model} "1")
     (is (= [404 {"errors" [{"code"    "FNF"
                             "message" "File not found"}]
