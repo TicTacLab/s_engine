@@ -104,7 +104,7 @@
 (defn clear-event-log! [file-wb]
   (mx/remove-rows! (:workbook file-wb) event-log-sheet 1))
 
-(defn new-model-workbook [file]
+(defn new-file-workbook [file]
   (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)

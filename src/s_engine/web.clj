@@ -42,19 +42,6 @@
 (def error-423-cip (error-response 423 "CIP" "Calculation is in progress"))
 (def error-500-ise (error-response 500 "ISE" "Internal server error"))
 
-#_(defn check-form-params
-  [params problems]
-  (cond
-    problems
-    (do
-      (log/info "Problems while parsing model upload form" problems)
-      error-400-mfp)
-
-    (nil? params)
-    (do
-      (log/info "Got no form params")
-      error-400-mfp)))
-
 #_(defn parse-form-param [h]
   (fn [form request]
     (try
@@ -109,9 +96,9 @@
     (log/info "Invalid event id" e-id)
     error-400-mfp))
 
-(defn- check-model-id [m-id]
-  (when (not (integer? m-id))
-    (log/info "Invalid model id" m-id)
+(defn- check-file-id [file-id]
+  (when (not (integer? file-id))
+    (log/info "Invalid file id" file-id)
     error-400-mfp))
 
 (defn- check-session-exists [session-storage s-id]
@@ -124,9 +111,9 @@
     (log/info "Session with id already created" s-id)
     error-400-mfp))
 
-(defn- check-model-exists [storage m-id]
-  (when-not (file/exists? storage m-id)
-    (log/info "Model with id not found" m-id)
+(defn- check-file-exists [storage file-id]
+  (when-not (file/exists? storage file-id)
+    (log/info "File with id not found" file-id)
     error-404-fnf))
 
 (def ^:const event-schema
@@ -149,50 +136,50 @@
 ;; Routes
 ;;
 
-(defn- write-model! [storage model-id file file-name]
+(defn- write-file! [storage file-id file file-name]
   (let [file-bytes (file/read-bytes file)]
-    (file/write! storage model-id file-bytes file-name)))
+    (file/write! storage file-id file-bytes file-name)))
 
-(defn model-upload
+(defn file-upload
   [{{:keys [storage]} :web params :params}]
-  (let [model-id (try-string->json (:model-id params))]
-    (resp-> (check-model-id model-id)
+  (let [file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
             (check-file params)
             (let [{:keys [filename tempfile]} (:file params)]
-              (write-model! storage model-id tempfile filename)
+              (write-file! storage file-id tempfile filename)
               (success-response 201)))))
 
-(defn model-replace
+(defn file-replace
   [{params :params
     {:keys [storage]} :web}]
-  (let [model-id (try-string->json (:model-id params))]
-    (resp-> (check-model-id model-id)
-            (check-model-exists storage model-id)
+  (let [file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
+            (check-file-exists storage file-id)
             (check-file params)
             (let [{:keys [filename tempfile]} (:file params)]
-              (write-model! storage model-id tempfile filename)
+              (write-file! storage file-id tempfile filename)
               (success-response 204)))))
 
-(defn model-delete
+(defn file-delete
   [{params             :params
     {:keys [storage]}  :web}]
-  (let [model-id (try-string->json (:model-id params))]
-    (resp-> (check-model-id model-id)
-            (check-model-exists storage model-id)
+  (let [file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
+            (check-file-exists storage file-id)
             (do
-              (file/delete! storage model-id)
+              (file/delete! storage file-id)
               (success-response 204)))))
 
 (defn session-create
   [{{:keys [event-id] :as params}     :params
     {:keys [session-storage storage]} :web}]
-  (let [model-id (try-string->json (:model-id params))]
+  (let [file-id (try-string->json (:file-id params))]
     (resp-> (check-event-id event-id)
             (check-session-not-exists session-storage event-id)
-            (check-model-id model-id)
-            (check-model-exists storage model-id)
+            (check-file-id file-id)
+            (check-file-exists storage file-id)
             (do
-              (session/create! session-storage storage model-id event-id)
+              (session/create! session-storage storage file-id event-id)
               (success-response 201)))))
 
 (defn session-finalize
@@ -242,16 +229,16 @@
                (success-response 200))))
 
 (defroutes routes
-           (POST "/files/:model-id/upload" req (model-upload req))
-           (POST "/files/:model-id" req (model-replace req))
-           (DELETE "/files/:model-id" req (model-delete req))
+           (POST "/files/:file-id/upload" req (file-upload req))
+           (POST "/files/:file-id" req (file-replace req))
+           (DELETE "/files/:file-id" req (file-delete req))
 
-           (POST "/files/:model-id/:event-id" req (session-create req))
-           (DELETE "/files/:model-id/:event-id" req (session-finalize req))
-           (GET "/files/:model-id/:event-id/event-log" req (session-get-event-log req))
-           (POST "/files/:model-id/:event-id/event-log/append" req (session-append-event req))
-           (POST "/files/:model-id/:event-id/event-log/set" req (session-set-event-log req))
-           (GET "/files/:model-id/:event-id/settlements" req (session-get-settlements req))
+           (POST "/files/:file-id/:event-id" req (session-create req))
+           (DELETE "/files/:file-id/:event-id" req (session-finalize req))
+           (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
+           (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
+           (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
+           (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
 
            (ANY "/*" _ error-404-rnf))
 

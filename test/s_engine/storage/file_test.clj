@@ -1,13 +1,12 @@
-(ns s-engine.storage.model-test
+(ns s-engine.storage.file-test
   (:require [clojure.test :refer :all]
-            [s-engine.storage.file :refer :all]
-            ))
+            [s-engine.storage.file :refer :all]))
 
-(def ^:const test-model
+(def ^:const test-file
   (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" ""))
 
 (deftest get-event-log-sheet-test
-  (let [file-wb (new-model-workbook test-model)
+  (let [file-wb (new-file-workbook test-file)
         event {"EventType" "Match"
                "min"       0
                "sec"       1
@@ -69,7 +68,7 @@
          (get-event-types []))))
 
 (deftest clear-event-log!-test
-  (let [file-wb (new-model-workbook test-model)
+  (let [file-wb (new-file-workbook test-file)
         event {:type "Match"
                :min 0
                :sec 0
@@ -78,7 +77,7 @@
     (clear-event-log! file-wb)
     (is (empty? (get-event-log-rows file-wb)))))
 
-(deftest model-workbook-test
+(deftest file-workbook-test
   (let [event-types {"Goal"
                      {"Team" #{"Team1" "Team2"}
                       "GamePart" #{"Half1" "Half2" "Extratime1" "Extratime2"
@@ -114,11 +113,11 @@
                       "Accidental"
                       "Action"]]
     (is (= (->FileWorkbook :bytes event-types column-order)
-           (-> (new-model-workbook test-model)
+           (-> (new-file-workbook test-file)
                (assoc :workbook :bytes))))))
 
 (deftest finalize-test
-  (let [file-wb (new-model-workbook test-model)]
+  (let [file-wb (new-file-workbook test-file)]
     ;; java.io.Closeable does not have "isClosed" or similar
     (finalize! file-wb)))
 
@@ -133,7 +132,7 @@
 
 (deftest append-events!-test
   (testing "Consecutive appends"
-    (let [file-wb (new-model-workbook test-model)
+    (let [file-wb (new-file-workbook test-file)
           event {"EventType" "Match"
                  "min"       0.
                  "sec"       0.
@@ -150,11 +149,11 @@
 
 (deftest get-event-log-test
   (testing "Empty event log"
-    (let [file-wb (new-model-workbook test-model)]
+    (let [file-wb (new-file-workbook test-file)]
       (clear-event-log! file-wb)
       (is (empty? (get-event-log-rows file-wb)))))
   (testing "Not empty"
-    (let [file-wb (new-model-workbook test-model)
+    (let [file-wb (new-file-workbook test-file)
           event1 {"EventType" "Match"
                   "min"       0.
                   "sec"       1.
@@ -178,7 +177,7 @@
              (get-event-log-rows file-wb))))))
 
 (deftest set-event-log-sheet!-test
-  (let [file-wb (new-model-workbook test-model)
+  (let [file-wb (new-file-workbook test-file)
         event1 {"EventType"  "Match"
                 "min"        0.
                 "sec"        0.

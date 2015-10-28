@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [s-engine.session :refer :all]
             [com.stuartsierra.component :as component]
-            [s-engine.storage.file :as model]
+            [s-engine.storage.file :as file]
             [s-engine.system :as s]
             [s-engine.config :as c]
             [s-engine.storage.event-log :as ev]
@@ -14,13 +14,13 @@
 ;; Setup
 ;;
 
-(def ^:const test-model-id 1)
-(def ^:const test-model-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
+(def ^:const test-file-id 1)
+(def ^:const test-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
 
-(defn- load-test-model!
+(defn- load-test-file!
   [{:keys [storage]}]
-  (let [file-bytes (model/read-bytes (File. test-model-file))]
-    (model/write! storage test-model-id file-bytes "test-model.xlsx")))
+  (let [file-bytes (file/read-bytes (File. test-file))]
+    (file/write! storage test-file-id file-bytes "test-model.xlsx")))
 
 (def system nil)
 
@@ -36,7 +36,7 @@
   (try
     (stop-system)
     (start-system)
-    (load-test-model! system)
+    (load-test-file! system)
     (f)
     (catch Exception e
       (log/error e "Error"))
@@ -52,7 +52,7 @@
 (deftest create-test-without-logs
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)]
+        session (create! session-storage storage test-file-id session-id)]
     (is (= session
            (get @(:session-table session-storage) session-id)))
     (is (empty? (get-events session)))))
@@ -70,7 +70,7 @@
                "Action"     ""}
         session-id (str (UUID/randomUUID))]
     (ev/refresh! storage session-id [event])
-    (let [session (create! session-storage storage test-model-id session-id)]
+    (let [session (create! session-storage storage test-file-id session-id)]
       (is (= session
              (get @(:session-table session-storage) session-id)))
       (is (= [event]
@@ -79,14 +79,14 @@
 (deftest get-one-test
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)]
+        session (create! session-storage storage test-file-id session-id)]
     (is (= session
            (get-one session-storage session-id)))))
 
 (deftest append-event-test
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)
+        session (create! session-storage storage test-file-id session-id)
         event {"EventType"  "Goal"
                "min"        0.
                "sec"        0.
@@ -105,7 +105,7 @@
 (deftest get-events-test
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)
+        session (create! session-storage storage test-file-id session-id)
         event1 {"EventType"  "Goal"
                 "min"        0.
                 "sec"        0.
@@ -152,7 +152,7 @@
                 "Accidental" "OwnGoal"
                 "Action"     ""}
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)]
+        session (create! session-storage storage test-file-id session-id)]
     (append-event! storage session event1)
     (set-events! storage session [event2])
     (is (= [event2]
@@ -163,7 +163,7 @@
 (deftest get-out-test
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)]
+        session (create! session-storage storage test-file-id session-id)]
     (is (= [{"Market name" "MATCH_BETTING"
              "Outcome" "HOME"
              "Calc" "lose"}
@@ -178,7 +178,7 @@
 (deftest finalize-test
   (let [{:keys [session-storage storage]} system
         session-id (str (UUID/randomUUID))
-        session (create! session-storage storage test-model-id session-id)
+        session (create! session-storage storage test-file-id session-id)
         event {"EventType"  "Goal"
                "min"        0.
                "sec"        0.
