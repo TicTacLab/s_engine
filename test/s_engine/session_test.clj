@@ -68,7 +68,7 @@
                "BodyPart"   "Leg"
                "Accidental" "OwnGoal"
                "Action" ""}]
-    (append-event! session event)
+    (append-event! storage session event)
     (is (= [event]
            (get-events session)))))
 
@@ -95,9 +95,9 @@
                 "Action" ""}]
     (do
       (is (empty? (get-events session)))
-      (append-event! session event1)
+      (append-event! storage session event1)
       (is (= [event1] (get-events session)))
-      (append-event! session event2)
+      (append-event! storage session event2)
       (is (= [event1 event2] (get-events session))))))
 
 (deftest set-events!-test
@@ -121,8 +121,8 @@
                 "Accidental" "OwnGoal"
                 "Action"     ""}
         session (create! session-storage storage test-model-id "session1")]
-    (append-event! session event1)
-    (set-events! session [event2])
+    (append-event! storage session event1)
+    (set-events! storage session [event2])
     (is (= [event2]
            (get-events session)))))
 

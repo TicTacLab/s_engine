@@ -19,6 +19,11 @@
   (let [file-bytes (model/read-bytes (File. test-model-file))]
     (model/write! storage test-model-id file-bytes "test-model.xlsx")))
 
+(defn- finalize-sessions
+  [{:keys [storage session-storage]}]
+  (->> (session/get-all session-storage)
+       (mapv #(session/finalize session-storage storage %))))
+
 (def system nil)
 
 (defn start-system []
@@ -36,6 +41,7 @@
     (load-test-model! system)
     (f)
     (finally
+      (finalize-sessions system)
       (stop-system))))
 
 (defn make-url [& paths]
@@ -256,7 +262,7 @@
                http/post deref resp->status+body))
         "Session does not exist")
     (let [session (session/create! session-storage storage test-model-id "1")]
-      (session/append-event! session event1)
+      (session/append-event! storage session event1)
       (is (= [200 {"status" 200
                    "data"   [{"Market name" "MATCH_BETTING"
                               "Outcome"     "HOME"

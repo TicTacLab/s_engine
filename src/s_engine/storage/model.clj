@@ -4,7 +4,6 @@
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes))
   (:require [malcolmx.core :as mx]
-            [com.stuartsierra.component :as component]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]))
 

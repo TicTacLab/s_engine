@@ -62,8 +62,7 @@
                              "MetaValue" "Team1"}
                             {"EventType" "Red Card"
                              "MetaKey"   "Game Part"
-                             "MetaValue" "Half1"}
-                            ]))))
+                             "MetaValue" "Half1"}]))))
 
 (deftest get-event-types-test
   (is (= {}
