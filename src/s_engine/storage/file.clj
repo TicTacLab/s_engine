@@ -1,6 +1,5 @@
-(ns s-engine.storage.model
-  (:import (java.io File)
-           (java.nio.file Paths Files)
+(ns s-engine.storage.file
+  (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes))
   (:require [malcolmx.core :as mx]
@@ -19,44 +18,44 @@
 ;; Persistense
 ;;
 
-(def ^:private table-name "sengine_models")
+(def ^:private table-name "sengine_files")
 
-(defrecord Model [id file file-name])
+(defrecord File [id file file-name])
 
-(defn- row->model [row]
-  (->Model (:id row)
-           (Bytes/getArray (:file row))
+(defn- row->file [row]
+  (->File (:id row)
+           (Bytes/getArray (:raw_file row))
            (:file_name row)))
 
 (defn exists?
-  [storage model-id]
+  [storage file-id]
   (let [{:keys [conn]} storage]
     (boolean (seq (cql/select conn table-name
                               (columns :id)
-                              (where [[= :id model-id]])
+                              (where [[= :id file-id]])
                               (limit 1))))))
 
 (defn write!
-  [storage model-id file-bytes filename]
+  [storage file-id file-bytes filename]
   (let [{:keys [conn]} storage
-        model {:id model-id, :file_name filename, :file file-bytes}]
-    (cql/insert conn table-name model)))
+        file {:id file-id, :file_name filename, :raw_file file-bytes}]
+    (cql/insert conn table-name file)))
 
 (defn delete!
-  [storage model-id]
+  [storage file-id]
   (let [{:keys [conn]} storage]
     (cql/delete conn table-name
-                (where [[= :id model-id]]))))
+                (where [[= :id file-id]]))))
 
 (defn get-one
-  "Retrieves model from storage, returns nil if not found"
-  [storage model-id]
+  "Retrieves file from storage, returns nil if not found"
+  [storage file-id]
   (let [{:keys [conn]} storage
         row (first (cql/select conn table-name
-                               (columns :id :file :file_name)
-                               (where [[= :id model-id]])))]
+                               (columns :id :raw_file :file_name)
+                               (where [[= :id file-id]])))]
     (when row
-      (row->model row))))
+      (row->file row))))
 
 (defn read-bytes [^File file]
   (Files/readAllBytes (Paths/get (.toURI file))))
@@ -105,8 +104,8 @@
 (defn clear-event-log! [model-wb]
   (mx/remove-rows! (:workbook model-wb) event-log-sheet 1))
 
-(defn model-workbook [model]
-  (let [workbook (mx/parse (:file model))
+(defn new-model-workbook [file]
+  (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)
         column-order (get-column-order rows)

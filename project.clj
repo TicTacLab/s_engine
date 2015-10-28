@@ -12,8 +12,6 @@
                  [com.taoensso/nippy "2.9.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [prismatic/schema "1.0.1"]
-                 [formative "0.8.8" :exclusions [org.clojure/clojurescript
-                                                 clj-time]]
                  [cheshire "5.5.0"]
                  [javax.servlet/javax.servlet-api "3.1.0"]
                  [compojure "1.2.0"]

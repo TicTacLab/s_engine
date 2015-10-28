@@ -8,7 +8,7 @@
             [s-engine.config :as c]
             [s-engine.system :as s]
             [s-engine.session :as session]
-            [s-engine.storage.model :as model])
+            [s-engine.storage.file :as file])
   (:import (java.io File)))
 
 (def ^:const test-model-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
@@ -16,8 +16,8 @@
 
 (defn- load-test-model!
   [{:keys [storage]}]
-  (let [file-bytes (model/read-bytes (File. test-model-file))]
-    (model/write! storage test-model-id file-bytes "test-model.xlsx")))
+  (let [file-bytes (file/read-bytes (File. test-model-file))]
+    (file/write! storage test-model-id file-bytes "test-model.xlsx")))
 
 (defn- finalize-sessions
   [{:keys [storage session-storage]}]
@@ -95,37 +95,28 @@
 
 (deftest model-upload-test
   (let [{:keys [storage]} system]
-    (model/delete! storage test-model-id)
+    (file/delete! storage test-model-id)
     (is (= (resp->status+body error-400-mfp)
-           (-> (make-url "/files/upload")
+           (-> (make-url "/files/sdsfdd/upload")
                (http/post {:multipart []})
                (deref)
                (resp->status+body)))
-        "No form data given")
+        "Malformed file-id")
     (is (= (resp->status+body error-400-mfp)
-           (-> (make-url "/files/upload")
-               (http/post {:multipart [{:name "id" :content (str test-model-id)}]})
+           (-> (make-url "/files" test-model-id "upload")
+               (http/post {:multipart []})
                (deref)
                (resp->status+body)))
         "No file given")
-    (is (= (resp->status+body error-400-mfp)
-           (-> (make-url "/files/upload")
+    (is (= [201 ""]
+           (-> (make-url "/files" test-model-id "upload")
                (http/post {:multipart [{:name     "file"
                                         :content  (io/file test-model-file)
                                         :filename "test-model.xlsx"}]})
                (deref)
                (resp->status+body)))
-        "No model id given")
-    (is (= [201 ""]
-           (-> (make-url "/files/upload")
-               (http/post {:multipart [{:name "id" :content (str test-model-id)}
-                                       {:name     "file"
-                                        :content  (io/file test-model-file)
-                                        :filename "test-model.xlsx"}]})
-               (deref)
-               (resp->status+body)))
         "Created model succesfully")
-    (is (true? (model/exists? storage test-model-id)))))
+    (is (true? (file/exists? storage test-model-id)))))
 
 (deftest model-replace-test
   (let [{:keys [storage]} system]
@@ -151,7 +142,7 @@
                (deref)
                (resp->status+body))))
     (is (= "new-model.xlsx"
-           (:file-name (model/get-one storage test-model-id)))
+           (:file-name (file/get-one storage test-model-id)))
         "Replaced model succesfully")))
 
 (deftest model-delete-test
@@ -162,7 +153,7 @@
     (is (= [204 ""]
            (-> (make-url "/files" test-model-id)
                http/delete deref resp->status+body)))
-    (is (false? (model/exists? storage test-model-id)))))
+    (is (false? (file/exists? storage test-model-id)))))
 
 (deftest session-create-test
   (let [{:keys [session-storage storage]} system]

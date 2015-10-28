@@ -3,7 +3,6 @@
             [schema.core :as s]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log]
-            [formative.parse :as fp]
             [ring.middleware
              [params :refer (wrap-params)]
              [keyword-params :refer (wrap-keyword-params)]
@@ -14,10 +13,8 @@
             [cheshire.core :as json]
             [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
-            [s-engine.form :as form]
-            [s-engine.storage.model :as model])
-  (:import (org.eclipse.jetty.server Server)
-           (clojure.lang ExceptionInfo)))
+            [s-engine.storage.file :as file])
+  (:import (org.eclipse.jetty.server Server)))
 
 
 ;;
@@ -45,6 +42,27 @@
 (def error-423-cip (error-response 423 "CIP" "Calculation is in progress"))
 (def error-500-ise (error-response 500 "ISE" "Internal server error"))
 
+#_(defn check-form-params
+  [params problems]
+  (cond
+    problems
+    (do
+      (log/info "Problems while parsing model upload form" problems)
+      error-400-mfp)
+
+    (nil? params)
+    (do
+      (log/info "Got no form params")
+      error-400-mfp)))
+
+#_(defn parse-form-param [h]
+  (fn [form request]
+    (try
+      (let [params (fp/parse-request form request)]
+        (h params))
+      (catch ExceptionInfo e
+        {:status 500}))))
+
 (defn try-string->json [value]
   (try
     (json/parse-string value false)
@@ -70,14 +88,6 @@
         (log/error e "while request handling")
         error-500-ise))))
 
-(defn- safe-parse-request
-  [form request]
-  (try
-    (let [params (fp/parse-request form request)]
-      [params nil])
-    (catch ExceptionInfo e
-      [nil (:problems e)])))
-
 (defmacro resp->
   "Evaluates forms sequentially and returns first valid response. Returns last item if no response found.
   Does not inserts result of previous form as second item in next form."
@@ -88,18 +98,11 @@
            ~@(interleave (repeat g) (map pstep forms))]
        ~g)))
 
-(defn check-form-params
-  [params problems]
-  (cond
-    problems
-    (do
-      (log/info "Problems while parsing model upload form" problems)
-      error-400-mfp)
-
-    (nil? params)
-    (do
-      (log/info "Got no form params")
-      error-400-mfp)))
+(defn check-file
+  [params]
+  (when-not (:file params)
+    (log/error "Got no file")
+    error-400-mfp))
 
 (defn- check-event-id [e-id]
   (when (empty? e-id)
@@ -122,7 +125,7 @@
     error-400-mfp))
 
 (defn- check-model-exists [storage m-id]
-  (when-not (model/exists? storage m-id)
+  (when-not (file/exists? storage m-id)
     (log/info "Model with id not found" m-id)
     error-404-fnf))
 
@@ -147,27 +150,26 @@
 ;;
 
 (defn- write-model! [storage model-id file file-name]
-  (let [file-bytes (model/read-bytes file)]
-    (model/write! storage model-id file-bytes file-name)))
+  (let [file-bytes (file/read-bytes file)]
+    (file/write! storage model-id file-bytes file-name)))
 
 (defn model-upload
-  [{{:keys [storage]} :web :as r}]
-  (let [[params problems] (safe-parse-request form/upload-model-form r)
-        model-id (try-string->json (:id params))]
-    (resp-> (check-form-params params problems)
-            (check-model-id model-id)
-            (let [{:keys [filename tempfile]} (:file params)]
+  [{{:keys [storage]} :web params :params}]
+  (let [model-id (try-string->json (:model-id params))]
+    (resp-> (check-model-id model-id)
+            (check-file params)
+            (let [{:keys [filename tempfile]} (:file (>trace params))]
               (write-model! storage model-id tempfile filename)
               (success-response 201)))))
 
 (defn model-replace
-  [{{:keys [model-id]} :params
-    {:keys [storage]}  :web :as r}]
-  (let [[form-params problems] (safe-parse-request form/replace-model-form r)
-        model-id (try-string->json model-id)]
-    (resp-> (check-model-exists storage model-id)
-            (check-form-params form-params problems)
-            (let [{:keys [filename tempfile]} (:file form-params)]
+  [{params :params
+    {:keys [storage]} :web}]
+  (let [model-id (try-string->json (:model-id params))]
+    (resp-> (check-model-id model-id)
+            (check-model-exists storage model-id)
+            (check-file params)
+            (let [{:keys [filename tempfile]} (:file params)]
               (write-model! storage model-id tempfile filename)
               (success-response 204)))))
 
@@ -178,7 +180,7 @@
     (resp-> (check-model-id model-id)
             (check-model-exists storage model-id)
             (do
-              (model/delete! storage model-id)
+              (file/delete! storage model-id)
               (success-response 204)))))
 
 (defn session-create
@@ -240,7 +242,7 @@
                (success-response 200))))
 
 (defroutes routes
-           (POST "/files/upload" req (model-upload req))
+           (POST "/files/:model-id/upload" req (model-upload req))
            (POST "/files/:model-id" req (model-replace req))
            (DELETE "/files/:model-id" req (model-delete req))
 

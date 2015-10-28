@@ -1,13 +1,13 @@
 (ns s-engine.storage.model-test
   (:require [clojure.test :refer :all]
-            [s-engine.storage.model :refer :all]
+            [s-engine.storage.file :refer :all]
             ))
 
 (def ^:const test-model
-  {:file "test/resources/AutoCalc_Soccer_EventLog.xlsx"})
+  (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" ""))
 
 (deftest get-event-log-sheet-test
-  (let [model-wb (model-workbook test-model)
+  (let [model-wb (new-model-workbook test-model)
         event {"EventType" "Match"
                "min"       0
                "sec"       1
@@ -69,7 +69,7 @@
          (get-event-types []))))
 
 (deftest clear-event-log!-test
-  (let [model-wb (model-workbook test-model)
+  (let [model-wb (new-model-workbook test-model)
         event {:type "Match"
                :min 0
                :sec 0
@@ -114,11 +114,11 @@
                       "Accidental"
                       "Action"]]
     (is (= (->ModelWorkbook :bytes event-types column-order)
-           (-> (model-workbook test-model)
+           (-> (new-model-workbook test-model)
                (assoc :workbook :bytes))))))
 
 (deftest finalize-test
-  (let [model-wb (model-workbook test-model)]
+  (let [model-wb (new-model-workbook test-model)]
     ;; java.io.Closeable does not have "isClosed" or similar
     (finalize! model-wb)))
 
@@ -133,7 +133,7 @@
 
 (deftest append-events!-test
   (testing "Consecutive appends"
-    (let [model-wb (model-workbook test-model)
+    (let [model-wb (new-model-workbook test-model)
           event {"EventType" "Match"
                  "min"       0.
                  "sec"       0.
@@ -150,11 +150,11 @@
 
 (deftest get-event-log-test
   (testing "Empty event log"
-    (let [model-wb (model-workbook test-model)]
+    (let [model-wb (new-model-workbook test-model)]
       (clear-event-log! model-wb)
       (is (empty? (get-event-log-rows model-wb)))))
   (testing "Not empty"
-    (let [model-wb (model-workbook test-model)
+    (let [model-wb (new-model-workbook test-model)
           event1 {"EventType" "Match"
                   "min"       0.
                   "sec"       1.
@@ -178,7 +178,7 @@
              (get-event-log-rows model-wb))))))
 
 (deftest set-event-log-sheet!-test
-  (let [model-wb (model-workbook test-model)
+  (let [model-wb (new-model-workbook test-model)
         event1 {"EventType"  "Match"
                 "min"        0.
                 "sec"        0.
