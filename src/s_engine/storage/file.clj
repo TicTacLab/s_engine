@@ -64,7 +64,7 @@
 ;; ModelWorkbook
 ;;
 
-(defrecord ModelWorkbook [workbook event-types column-order])
+(defrecord FileWorkbook [workbook event-types column-order])
 
 (defn get-column-order [rows]
   (->> rows
@@ -87,34 +87,34 @@
     rows))
 
 (defn valid-event-attrs?
-  [model-wb event]
+  [file-wb event]
   (let [{event-type "EventType"} event]
-    (->> (get-in model-wb [:event-types event-type])
+    (->> (get-in file-wb [:event-types event-type])
          (every?
            (fn [[attr-name valid-values]]
              (contains? valid-values (get event attr-name)))))))
 
 (defn valid-event?
-  [model-wb event]
+  [file-wb event]
   (let [{event-type "EventType" :strs [min sec]} event]
-    (and (contains? (:event-types model-wb) event-type)
+    (and (contains? (:event-types file-wb) event-type)
          min sec
-         (valid-event-attrs? model-wb event))))
+         (valid-event-attrs? file-wb event))))
 
-(defn clear-event-log! [model-wb]
-  (mx/remove-rows! (:workbook model-wb) event-log-sheet 1))
+(defn clear-event-log! [file-wb]
+  (mx/remove-rows! (:workbook file-wb) event-log-sheet 1))
 
 (defn new-model-workbook [file]
   (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)
         column-order (get-column-order rows)
-        model-wb (->ModelWorkbook workbook event-types column-order)]
-    (clear-event-log! model-wb)
-    model-wb))
+        file-wb (->FileWorkbook workbook event-types column-order)]
+    (clear-event-log! file-wb)
+    file-wb))
 
-(defn finalize! [model-wb]
-  (.close ^Workbook (:workbook model-wb)))
+(defn finalize! [file-wb]
+  (.close ^Workbook (:workbook file-wb)))
 
 (defn event->row-data
   "Transforms event into vector of row cells"
@@ -126,26 +126,26 @@
 
 (defn append-events!
   "Appends given events coll to end of event log sheet"
-  [model-wb events]
-  (let [{:keys [workbook column-order]} model-wb]
+  [file-wb events]
+  (let [{:keys [workbook column-order]} file-wb]
     (->> events
          (map #(event->row-data column-order %))
          (mx/append-rows! workbook event-log-sheet))))
 
 (defn get-event-log-rows
   "Returns contents of event log sheet"
-  [model-wb]
+  [file-wb]
   (->> event-log-sheet
-       (mx/get-sheet (:workbook model-wb))
+       (mx/get-sheet (:workbook file-wb))
        (map #(dissoc % ""))))
 
 (defn set-event-log!
   "Sets contents of event log sheet to given coll of events"
-  [model-wb events]
-  (clear-event-log! model-wb)
-  (append-events! model-wb events))
+  [file-wb events]
+  (clear-event-log! file-wb)
+  (append-events! file-wb events))
 
 (defn get-out-rows
   "Returns contents of out sheet"
-  [model-wb]
-  (mx/get-sheet (:workbook model-wb) out-sheet))
+  [file-wb]
+  (mx/get-sheet (:workbook file-wb) out-sheet))

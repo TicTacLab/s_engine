@@ -158,7 +158,7 @@
   (let [model-id (try-string->json (:model-id params))]
     (resp-> (check-model-id model-id)
             (check-file params)
-            (let [{:keys [filename tempfile]} (:file (>trace params))]
+            (let [{:keys [filename tempfile]} (:file params)]
               (write-model! storage model-id tempfile filename)
               (success-response 201)))))
 

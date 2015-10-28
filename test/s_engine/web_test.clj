@@ -231,7 +231,7 @@
                (resp->status+json))))))
 
 (deftest session-set-event-log-test
-  (let [{:keys [storage session-storage storage]} system
+  (let [{:keys [session-storage storage]} system
         event1 {"EventType" "Goal"
                 "min"       0
                 "sec"       0

@@ -4,7 +4,7 @@
             [s-engine.storage.file :as file]
             [s-engine.storage.event-log :as ev]))
 
-(defrecord Session [id model-wb model-id])
+(defrecord Session [id file-wb model-id])
 
 (defn get-one
   "Return single session by id or nil if not found"
@@ -22,39 +22,38 @@
 
 (defn valid-event?
   [session event]
-  (file/valid-event? (:model-wb session) event))
+  (file/valid-event? (:file-wb session) event))
 
 (defn append-event!
   "Add event to session's event log"
   [storage session event]
-  (let [{:keys [model-wb]} session]
-    (file/append-events! model-wb [event])
+  (let [{:keys [file-wb]} session]
+    (file/append-events! file-wb [event])
     (ev/append! storage (:id session) [event])))
 
 (defn get-events
   "Get event log of session as sequence of events"
   [session]
-  (file/get-event-log-rows (:model-wb session)))
+  (file/get-event-log-rows (:file-wb session)))
 
 (defn set-events!
   "Set event log of session to given seq of events"
   [storage session events]
-  (file/set-event-log! (:model-wb session) events)
+  (file/set-event-log! (:file-wb session) events)
   (ev/refresh! storage (:id session) events))
 
 (defn get-out
   "Get market outcome sheet values"
   [session]
-  (file/get-out-rows (:model-wb session)))
+  (file/get-out-rows (:file-wb session)))
 
 (defn create!
   "Creates new session."
   [session-storage storage model-id session-id]
-  (let [model (>trace (file/get-one storage model-id))
-        model-wb (file/new-model-workbook model)
-        session (->Session session-id model-wb (:id model))
+  (let [model (file/get-one storage model-id)
+        file-wb (file/new-model-workbook model)
+        session (->Session session-id file-wb (:id model))
         events (ev/fetch storage session-id)]
-    (>trace events)
     (swap! (:session-table session-storage) assoc session-id session)
     (when events
       (set-events! storage session events))
@@ -63,9 +62,9 @@
 (defn finalize!
   "Closes session and saves final workbook"
   [session-storage storage session]
-  (let [model-wb (:model-wb session)]
-    (write-workbook! storage (:id session) model-wb)
-    (file/finalize! (:model-wb session))
+  (let [file-wb (:file-wb session)]
+    (write-workbook! storage (:id session) file-wb)
+    (file/finalize! (:file-wb session))
     (swap! (:session-table session-storage) dissoc (:id session))
     (ev/clear! storage (:id session))))
 

@@ -7,13 +7,13 @@
   (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" ""))
 
 (deftest get-event-log-sheet-test
-  (let [model-wb (new-model-workbook test-model)
+  (let [file-wb (new-model-workbook test-model)
         event {"EventType" "Match"
                "min"       0
                "sec"       1
                "Action"    "start"}]
-    (clear-event-log! model-wb)
-    (append-events! model-wb [event])
+    (clear-event-log! file-wb)
+    (append-events! file-wb [event])
     (is (= [{"EventType" "Match"
              "Team" ""
              "GamePart" ""
@@ -23,7 +23,7 @@
              "Action" "start"
              "min" 0.0
              "sec" 1.0}]
-           (get-event-log-rows model-wb)))))
+           (get-event-log-rows file-wb)))))
 
 (deftest get-column-order-test
   (is (= []
@@ -69,14 +69,14 @@
          (get-event-types []))))
 
 (deftest clear-event-log!-test
-  (let [model-wb (new-model-workbook test-model)
+  (let [file-wb (new-model-workbook test-model)
         event {:type "Match"
                :min 0
                :sec 0
                :attrs {"Action" "start"}}]
-    (append-events! model-wb [event])
-    (clear-event-log! model-wb)
-    (is (empty? (get-event-log-rows model-wb)))))
+    (append-events! file-wb [event])
+    (clear-event-log! file-wb)
+    (is (empty? (get-event-log-rows file-wb)))))
 
 (deftest model-workbook-test
   (let [event-types {"Goal"
@@ -113,14 +113,14 @@
                       "BodyPart"
                       "Accidental"
                       "Action"]]
-    (is (= (->ModelWorkbook :bytes event-types column-order)
+    (is (= (->FileWorkbook :bytes event-types column-order)
            (-> (new-model-workbook test-model)
                (assoc :workbook :bytes))))))
 
 (deftest finalize-test
-  (let [model-wb (new-model-workbook test-model)]
+  (let [file-wb (new-model-workbook test-model)]
     ;; java.io.Closeable does not have "isClosed" or similar
-    (finalize! model-wb)))
+    (finalize! file-wb)))
 
 (deftest event->row-data-test
   (let [column-order ["Attr1" "Action" "Attr2"]
@@ -133,7 +133,7 @@
 
 (deftest append-events!-test
   (testing "Consecutive appends"
-    (let [model-wb (new-model-workbook test-model)
+    (let [file-wb (new-model-workbook test-model)
           event {"EventType" "Match"
                  "min"       0.
                  "sec"       0.
@@ -143,18 +143,18 @@
                  "BodyPart"   ""
                  "Accidental" ""
                  "Action"    "start"}]
-      (append-events! model-wb [event])
-      (append-events! model-wb [event])
+      (append-events! file-wb [event])
+      (append-events! file-wb [event])
       (is (= [event event]
-             (get-event-log-rows model-wb))))))
+             (get-event-log-rows file-wb))))))
 
 (deftest get-event-log-test
   (testing "Empty event log"
-    (let [model-wb (new-model-workbook test-model)]
-      (clear-event-log! model-wb)
-      (is (empty? (get-event-log-rows model-wb)))))
+    (let [file-wb (new-model-workbook test-model)]
+      (clear-event-log! file-wb)
+      (is (empty? (get-event-log-rows file-wb)))))
   (testing "Not empty"
-    (let [model-wb (new-model-workbook test-model)
+    (let [file-wb (new-model-workbook test-model)
           event1 {"EventType" "Match"
                   "min"       0.
                   "sec"       1.
@@ -173,12 +173,12 @@
                   "BodyPart"   ""
                   "Accidental" ""
                   "Action"    "end"}]
-      (append-events! model-wb [event1 event2])
+      (append-events! file-wb [event1 event2])
       (is (= [event1 event2]
-             (get-event-log-rows model-wb))))))
+             (get-event-log-rows file-wb))))))
 
 (deftest set-event-log-sheet!-test
-  (let [model-wb (new-model-workbook test-model)
+  (let [file-wb (new-model-workbook test-model)
         event1 {"EventType"  "Match"
                 "min"        0.
                 "sec"        0.
@@ -197,7 +197,7 @@
                 "BodyPart"   ""
                 "Accidental" ""
                 "Action"     "start"}]
-    (append-events! model-wb [event1])
-    (set-event-log! model-wb [event2])
+    (append-events! file-wb [event1])
+    (set-event-log! file-wb [event2])
     (is (= [event2]
-           (get-event-log-rows model-wb)))))
+           (get-event-log-rows file-wb)))))
