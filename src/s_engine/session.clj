@@ -55,12 +55,13 @@
         model-wb (model/model-workbook model)
         session (->Session session-id model-wb (:id model))
         events (ev/fetch storage session-id)]
+    (>trace events)
     (swap! (:session-table session-storage) assoc session-id session)
     (when events
       (set-events! storage session events))
     session))
 
-(defn finalize
+(defn finalize!
   "Closes session and saves final workbook"
   [session-storage storage session]
   (let [model-wb (:model-wb session)]

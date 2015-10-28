@@ -21,7 +21,6 @@
 
 (defn wrap-with-system [f]
   (try
-    (stop-system)
     (start-system)
     (f)
     (finally
@@ -31,19 +30,23 @@
 (deftest clear-test
   (let [{:keys [storage]} system]
     (event-log/clear! storage event-id)
-    (is (= []
-           (event-log/fetch storage event-id)))))
+    (is (empty? (event-log/fetch storage event-id)))))
 
 (deftest refresh-test
-  (let [{:keys [storage]} system]
-    (event-log/refresh! storage event-id ["test-log-row1" "test-log-row2"])
-    (is (= [["test-log-row1" "test-log-row2"]]
-           (event-log/fetch storage event-id)))))
+  (let [{:keys [storage]} system
+        events [{"EventType" "test-log-row1"}
+                {"EventType" "test-log-row2"}]]
+    (event-log/refresh! storage event-id events)
+    (is (= events
+           (event-log/fetch storage event-id)))
+    (event-log/clear! storage event-id)))
 
 (deftest append-test
-  (let [{:keys [storage]} system]
-    (event-log/append! storage event-id ["test-log-row3" "test-log-row4"])
-    (is (= [["test-log-row1" "test-log-row2" "test-log-row3" "test-log-row4"]]
+  (let [{:keys [storage]} system
+        events [{"EventType" "test-log-row1"}
+                {"EventType" "test-log-row2"}]]
+    (event-log/append! storage event-id events)
+    (is (= events
            (event-log/fetch storage event-id)))
     (event-log/clear! storage event-id)))
 

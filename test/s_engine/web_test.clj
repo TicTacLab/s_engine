@@ -22,7 +22,7 @@
 (defn- finalize-sessions
   [{:keys [storage session-storage]}]
   (->> (session/get-all session-storage)
-       (mapv #(session/finalize session-storage storage %))))
+       (mapv #(session/finalize! session-storage storage %))))
 
 (def system nil)
 

@@ -4,7 +4,8 @@
             [com.stuartsierra.component :as component]
             [s-engine.storage.model :as model]
             [s-engine.system :as s]
-            [s-engine.config :as c])
+            [s-engine.config :as c]
+            [s-engine.storage.event-log :as ev])
   (:import (java.io File)))
 
 ;;
@@ -18,6 +19,11 @@
   [{:keys [storage]}]
   (let [file-bytes (model/read-bytes (File. test-model-file))]
     (model/write! storage test-model-id file-bytes "test-model.xlsx")))
+
+(defn- finalize-sessions
+  [{:keys [storage session-storage]}]
+  (->> (get-all session-storage)
+       (mapv #(finalize! session-storage storage %))))
 
 (def system nil)
 
@@ -36,6 +42,7 @@
     (load-test-model! system)
     (f)
     (finally
+      (finalize-sessions system)
       (stop-system))))
 
 (use-fixtures :each wrap-with-system)
@@ -44,11 +51,30 @@
 ;; Tests
 ;;
 
-(deftest create-test
+(deftest create-test-without-logs
   (let [{:keys [session-storage storage]} system
         session (create! session-storage storage test-model-id "session1")]
     (is (= session
-           (get @(:session-table session-storage) "session1")))))
+           (get @(:session-table session-storage) "session1")))
+    (is (empty? (get-events session)))))
+
+(deftest create-test-with-logs
+  (let [{:keys [session-storage storage]} system
+        event {"EventType"  "Test"
+               "min"        ""
+               "sec"        ""
+               "Team"       ""
+               "BodyPart"   ""
+               "GamePart"   ""
+               "Standart"   ""
+               "Accidental" ""
+               "Action"     ""}]
+    (ev/refresh! storage "session1" [event])
+    (let [session (create! session-storage storage test-model-id "session1")]
+      (is (= session
+             (get @(:session-table session-storage) "session1")))
+      (is (= [event]
+             (get-events session))))))
 
 (deftest get-one-test
   (let [{:keys [session-storage storage]} system
@@ -70,7 +96,9 @@
                "Action" ""}]
     (append-event! storage session event)
     (is (= [event]
-           (get-events session)))))
+           (get-events session)))
+    (is (= [event]
+           (ev/fetch storage "session1")))))
 
 (deftest get-events-test
   (let [{:keys [session-storage storage]} system
@@ -124,7 +152,9 @@
     (append-event! storage session event1)
     (set-events! storage session [event2])
     (is (= [event2]
-           (get-events session)))))
+           (get-events session)))
+    (is (= [event2]
+           (ev/fetch storage "session1")))))
 
 (deftest get-out-test
   (let [{:keys [session-storage storage]} system
@@ -139,3 +169,20 @@
              "Outcome" "AWAY"
              "Calc" "lose"}]
            (get-out session)))))
+
+(deftest finalize-test
+  (let [{:keys [session-storage storage]} system
+        session (create! session-storage storage test-model-id "session1")
+        event {"EventType"  "Goal"
+               "min"        0.
+               "sec"        0.
+               "Team"       "Team1"
+               "GamePart"   "Half1"
+               "Standart"   "Corner"
+               "BodyPart"   "Head"
+               "Accidental" "OwnGoal"
+               "Action"     ""}]
+    (append-event! storage session event)
+    (finalize! session-storage storage session)
+    (is (nil? (get-one session-storage "session1")))
+    (is (= (ev/fetch storage "session1")))))

@@ -198,7 +198,7 @@
     {:keys [session-storage storage]} :web}]
   (resp-> (check-session-exists session-storage event-id)
           (let [session (session/get-one session-storage event-id)]
-            (session/finalize session-storage storage session)
+            (session/finalize! session-storage storage session)
             (success-response 204))))
 
 (defn session-get-event-log

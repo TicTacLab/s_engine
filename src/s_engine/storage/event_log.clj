@@ -7,7 +7,7 @@
 (def ^:const event-log-table "event_log")
 
 (defn fetch
-  "Returns coll of event-log's for given event id or nil if not found."
+  "Returns coll of event-log's for given event id."
   [storage event-id]
   (let [{:keys [conn]} storage
         record (first (cql/select conn event-log-table
@@ -35,7 +35,6 @@
 
 (defn refresh!
   [storage event-id events]
-  (>trace events)
   (let [log-rows (map json/generate-string events)
         {:keys [conn]} storage]
     (cql/insert conn event-log-table
