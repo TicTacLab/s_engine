@@ -87,7 +87,7 @@
   "Checks that column names in EventLog sheet corresponds to attributes
   defined in EventType sheet. Returns nil or vector of errors."
   [attr-names event-log-columns]
-  (let [meta-columns ["EventType"]
+  (let [meta-columns [event-type-column]
         event-log-cols (set event-log-columns)
         required-cols (set (concat meta-columns attr-names))
         missing-columns (set/difference required-cols event-log-cols)
@@ -188,7 +188,8 @@
         _ (.write workbook out)
         bytes-arr (.toByteArray out)]
     (.close out)
-    [(:file-name file-wb) bytes-arr]))
+    {:file-name (:file-name file-wb)
+     :bytes     bytes-arr}))
 
 (defn get-out-rows
   "Returns contents of out sheet"

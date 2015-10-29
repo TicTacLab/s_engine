@@ -310,13 +310,13 @@
     (let [{:keys [session-storage storage]} system
           session-id (str (UUID/randomUUID))]
       (is (= (resp->status+json error-404-fnf)
-             (-> (make-url "/files" test-file-id session-id "workbook")
+             (-> (make-url "/files" test-file-id session-id)
                  (http/get)
                  (deref)
                  (resp->status+json)))
           "Session does not exist")
       (session/create! session-storage storage test-file-id session-id)
-      (let [resp (-> (make-url "/files" test-file-id session-id "workbook")
+      (let [resp (-> (make-url "/files" test-file-id session-id)
                      (http/get)
                      (deref))]
         (is (= 200 (:status resp)))

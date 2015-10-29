@@ -3,7 +3,7 @@
             [s-engine.storage.file :refer :all :as file]))
 
 (def ^:const test-file
-  (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" ""))
+  (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" "AutoCalc_Soccer_EventLog.xlsx"))
 
 (deftest get-event-log-sheet-test
   (let [file-wb (new-file-workbook test-file)
@@ -117,7 +117,7 @@
                      "break"           {"Action" #{"start" "stop"}}
                      "FullTime"        {"Action" #{"start" "stop"}}
                      "Match"           {"Action" #{"start" "stop"}}}]
-    (is (= (->FileWorkbook :bytes event-types)
+    (is (= (->FileWorkbook :bytes event-types "AutoCalc_Soccer_EventLog.xlsx")
            (-> (new-file-workbook test-file)
                (assoc :workbook :bytes))))))
 

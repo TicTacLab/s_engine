@@ -258,8 +258,8 @@
     {:keys [session-storage]} :web}]
   (resp-> (check-session-exists session-storage event-id)
           (let [session (session/get-one session-storage event-id)
-                [file-name workbook-bytes] (session/get-workbook session)]
-            (file-response workbook-bytes file-name))))
+                {:keys [file-name bytes]} (session/get-workbook session)]
+            (file-response bytes file-name))))
 
 (defroutes routes
            (POST "/files/:file-id/upload" req (file-upload req))
@@ -267,12 +267,12 @@
            (DELETE "/files/:file-id" req (file-delete req))
 
            (POST "/files/:file-id/:event-id" req (session-create req))
+           (GET "/files/:file-id/:event-id" req (session-get-workbook req))
            (DELETE "/files/:file-id/:event-id" req (session-finalize req))
            (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
            (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
            (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
            (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
-           (GET "/files/:file-id/:event-id/workbook" req (session-get-workbook req))
 
            (ANY "/*" _ error-404-rnf))
 
