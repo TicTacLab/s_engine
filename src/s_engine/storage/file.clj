@@ -2,7 +2,8 @@
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes))
-  (:require [malcolmx.core :as mx]
+  (:require [clojure.set :as set]
+            [malcolmx.core :as mx]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]))
 
@@ -66,10 +67,38 @@
 
 (defrecord FileWorkbook [workbook event-types column-order])
 
-(defn get-column-order [rows]
+
+(defn get-event-type-columns
+  [rows]
   (->> rows
        (map #(get % event-type-attr-column))
+       (remove #(nil? %))
        distinct))
+
+(defn get-event-log-columns
+  [workbook]
+  (->> (mx/get-sheet-header workbook event-log-sheet)
+       (remove #(empty? %))))
+
+(defn validate-workbook
+  [workbook]
+  (let [event-type-columns (-> workbook
+                             (mx/get-sheet event-type-sheet)
+                             (get-event-type-columns))
+        meta-columns ["min" "sec" "EventType"]
+        event-log-columns (set (get-event-log-columns workbook))
+        required-columns (set (concat meta-columns event-type-columns))]
+    (concat
+      (->> (set/difference required-columns event-log-columns)
+           (map (fn [name] [::missing-column name])))
+      (->> (set/difference event-log-columns  required-columns)
+           (map (fn [name] [::extra-column name]))))))
+
+(defn validate-file
+  [^File file]
+  (-> (read-bytes file)
+      (mx/parse)
+      (validate-workbook)))
 
 (defn get-event-types [rows]
   "Returns attributes of event types in workbook:

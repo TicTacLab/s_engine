@@ -14,7 +14,8 @@
             [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
             [s-engine.storage.file :as file])
-  (:import (org.eclipse.jetty.server Server)))
+  (:import (org.eclipse.jetty.server Server)
+           (java.io File)))
 
 
 ;;
@@ -91,6 +92,18 @@
     (log/error "Got no file")
     error-400-mfp))
 
+(defn check-valid-file
+  [^File file]
+  (some->> (file/validate-file file)
+           (not-empty)
+           (map (fn [[err val]]
+                  (case err
+                    ::file/missing-column (format "missing column: %s" val)
+                    ::file/extra-column (format "extra column: %s" val))))
+           (interpose ", ")
+           (apply str)
+           (error-response 400 "MFP")))
+
 (defn- check-event-id [e-id]
   (when (empty? e-id)
     (log/info "Invalid event id" e-id)
@@ -145,6 +158,7 @@
   (let [file-id (try-string->json (:file-id params))]
     (resp-> (check-file-id file-id)
             (check-file params)
+            (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
               (success-response 201)))))
@@ -156,6 +170,7 @@
     (resp-> (check-file-id file-id)
             (check-file-exists storage file-id)
             (check-file params)
+            (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
               (success-response 204)))))

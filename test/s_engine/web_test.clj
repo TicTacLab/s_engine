@@ -57,6 +57,8 @@
           (-> (make-url "/invalid-url") http/get deref resp->status+body))
        "Should return 404")))
 
+(def ^:const invalid-file "test/resources/AutoCalc_Soccer_EventLog.invalid.xlsx")
+
 (deftest file-upload-test
   (with-started-system [system]
     (load-test-file! system)
@@ -74,6 +76,17 @@
                  (deref)
                  (resp->status+body)))
           "No file given")
+      (is (= [400 {"status" 400
+                   "errors" [{"code"    "MFP"
+                              "message" [["Missing column" "Action"]
+                                         ["Extra column" "Extra column"]]}]}]
+             (-> (make-url "/files" test-file-id "upload")
+                 (http/post {:multipart [{:name     "file"
+                                          :content  (io/file invalid-file)
+                                          :filename "test-model.xlsx"}]})
+                 (deref)
+                 (resp->status+json)))
+          "File has errors")
       (is (= [201 ""]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
@@ -102,6 +115,17 @@
                 (deref)
                 (resp->status+body)))
          "No file given")
+     (is (= [400 {"status" 400
+                  "errors" [{"code" "MFP"
+                             "message" [["Missing column" "Action"]
+                                        ["Extra column" "Extra column"]]}]}]
+            (-> (make-url "/files" test-file-id)
+                (http/post {:multipart [{:name     "file"
+                                         :content  (io/file invalid-file)
+                                         :filename "test-model.xlsx"}]})
+                (deref)
+                (resp->status+json)))
+         "File has errors")
      (is (= [204 ""]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
