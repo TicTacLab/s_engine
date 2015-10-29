@@ -1,5 +1,9 @@
 (ns s-engine.web
-  (:require [compojure.core :refer (defroutes ANY GET POST PUT DELETE wrap-routes)]
+  (:require [clojure.string :as str]
+            [clojure.walk :refer [keywordize-keys]]
+            [compojure.core
+             :refer
+             (defroutes ANY GET POST PUT DELETE wrap-routes)]
             [schema.core :as s]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log]
@@ -11,7 +15,6 @@
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
-            [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
             [s-engine.storage.file :as file])
   (:import (org.eclipse.jetty.server Server)
@@ -98,9 +101,11 @@
            (not-empty)
            (map (fn [[err val]]
                   (case err
-                    ::file/missing-column (format "missing column: %s" val)
-                    ::file/extra-column (format "extra column: %s" val))))
-           (interpose ", ")
+                    ::file/missing-columns
+                    (format "missing columns: %s" (str/join ", " val))
+                    ::file/extra-columns
+                    (format "extra columns: %s" (str/join ", " val)))))
+           (interpose "; ")
            (apply str)
            (error-response 400 "MFP")))
 

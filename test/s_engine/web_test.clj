@@ -7,7 +7,8 @@
             [s-engine.config :as c]
             [s-engine.session :as session]
             [s-engine.storage.file :as file]
-            [s-engine.test-helper :refer :all]))
+            [s-engine.test-helper :refer :all])
+  (:import (java.util UUID)))
 
 (defn make-url [& paths]
   (let [port (:port @c/config)
@@ -78,8 +79,7 @@
           "No file given")
       (is (= [400 {"status" 400
                    "errors" [{"code"    "MFP"
-                              "message" [["Missing column" "Action"]
-                                         ["Extra column" "Extra column"]]}]}]
+                              "message" "missing columns: Action; extra columns: Extra column"}]}]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
                                           :content  (io/file invalid-file)
@@ -117,8 +117,7 @@
          "No file given")
      (is (= [400 {"status" 400
                   "errors" [{"code" "MFP"
-                             "message" [["Missing column" "Action"]
-                                        ["Extra column" "Extra column"]]}]}]
+                             "message" "missing columns: Action; extra columns: Extra column"}]}]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
                                          :content  (io/file invalid-file)
@@ -173,14 +172,15 @@
 (deftest session-get-event-log-test
   (with-started-system [system]
     (load-test-file! system)
-    (let [{:keys [storage session-storage]} system]
+    (let [{:keys [storage session-storage]} system
+          session-id (str (UUID/randomUUID))]
      (is (= (resp->status+body error-404-fnf)
-            (-> (make-url "/files" test-file-id "1" "event-log")
+            (-> (make-url "/files" test-file-id session-id "event-log")
                 http/get deref resp->status+body))
          "Session does not exist")
-     (session/create! session-storage storage test-file-id "1")
+     (session/create! session-storage storage test-file-id session-id)
      (is (= [200 {"data" [] "status" 200}]
-            (-> (make-url "/files" test-file-id "1" "event-log")
+            (-> (make-url "/files" test-file-id session-id "event-log")
                 (http/get)
                 (deref)
                 (resp->status+json)))))))
@@ -287,12 +287,13 @@
 (deftest session-get-settlements-test
   (with-started-system [system]
     (load-test-file! system)
-    (let [{:keys [session-storage storage]} system]
+    (let [{:keys [session-storage storage]} system
+          session-id (str (UUID/randomUUID))]
      (is (= (resp->status+body error-404-fnf)
-            (-> (make-url "/files" test-file-id "1" "settlements")
+            (-> (make-url "/files" test-file-id session-id "settlements")
                 http/get deref resp->status+body))
          "Session does not exist")
-     (session/create! session-storage storage test-file-id "1")
+     (session/create! session-storage storage test-file-id session-id)
      (is (= [200 {"status" 200
                   "data"   [{"Market name" "MATCH_BETTING"
                              "Outcome"     "HOME"
@@ -303,7 +304,7 @@
                             {"Market name" "MATCH_BETTING"
                              "Outcome"     "AWAY"
                              "Calc"        "lose"}]}]
-            (-> (make-url "/files" test-file-id 1 "settlements")
+            (-> (make-url "/files" test-file-id session-id "settlements")
                 (http/get) (deref)
                 (resp->status+json)))))))
 

@@ -65,10 +65,10 @@
 ;; ModelWorkbook
 ;;
 
-(defrecord FileWorkbook [workbook event-types column-order])
+(defrecord FileWorkbook [workbook event-types])
 
-
-(defn get-event-type-columns
+(defn get-event-type-attrs
+  "Returns seq of attribute names declared in EventType sheet"
   [rows]
   (->> rows
        (map #(get % event-type-attr-column))
@@ -76,29 +76,35 @@
        distinct))
 
 (defn get-event-log-columns
+  "Returns seq of column names declared in header of EventLog sheet"
   [workbook]
   (->> (mx/get-sheet-header workbook event-log-sheet)
        (remove #(empty? %))))
 
-(defn validate-workbook
-  [workbook]
-  (let [event-type-columns (-> workbook
-                             (mx/get-sheet event-type-sheet)
-                             (get-event-type-columns))
-        meta-columns ["min" "sec" "EventType"]
-        event-log-columns (set (get-event-log-columns workbook))
-        required-columns (set (concat meta-columns event-type-columns))]
+(defn validate-columns
+  "Checks that column names in EventLog sheet corresponds to attributes
+  defined in EventType sheet. Returns nil or vector of errors."
+  [attr-names event-log-columns]
+  (let [meta-columns ["min" "sec" "EventType"]
+        event-log-cols (set event-log-columns)
+        required-cols (set (concat meta-columns attr-names))
+        missing-columns (set/difference required-cols event-log-cols)
+        extra-columns (set/difference event-log-cols required-cols)]
     (concat
-      (->> (set/difference required-columns event-log-columns)
-           (map (fn [name] [::missing-column name])))
-      (->> (set/difference event-log-columns  required-columns)
-           (map (fn [name] [::extra-column name]))))))
+      (when (seq missing-columns)
+        [[::missing-columns missing-columns]])
+      (when (seq extra-columns)
+        [[::extra-columns extra-columns]]))))
 
 (defn validate-file
+  "Checks that given file contains valid model workbook."
   [^File file]
-  (-> (read-bytes file)
-      (mx/parse)
-      (validate-workbook)))
+  (let [workbook (mx/parse (read-bytes file))
+        attrs (-> workbook
+                  (mx/get-sheet event-type-sheet)
+                  (get-event-type-attrs))
+        event-log-columns (get-event-log-columns workbook)]
+    (validate-columns attrs event-log-columns)))
 
 (defn get-event-types [rows]
   "Returns attributes of event types in workbook:
@@ -137,8 +143,7 @@
   (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)
-        column-order (get-column-order rows)
-        file-wb (->FileWorkbook workbook event-types column-order)]
+        file-wb (->FileWorkbook workbook event-types)]
     (clear-event-log! file-wb)
     file-wb))
 
@@ -148,15 +153,13 @@
 (defn event->row-data
   "Transforms event into vector of row cells"
   [column-order event]
-  (let [{event-type "EventType" :strs [min sec]} event]
-    (->> column-order
-         (mapv #(get event % ""))
-         (concat [min sec event-type]))))
+  (mapv #(get event % "") column-order))
 
 (defn append-events!
   "Appends given events coll to end of event log sheet"
   [file-wb events]
-  (let [{:keys [workbook column-order]} file-wb]
+  (let [{:keys [workbook]} file-wb
+        column-order (get-event-log-columns workbook)]
     (->> events
          (map #(event->row-data column-order %))
          (mx/append-rows! workbook event-log-sheet))))
