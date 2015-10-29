@@ -223,9 +223,7 @@
                              "EventType"  "Goal"
                              "GamePart"   "Half1"
                              "Standart"   "Corner"
-                             "Team"       "Team1"
-                             "min"        1.0
-                             "sec"        1.0}]}]
+                             "Team"       "Team1"}]}]
             (-> (make-url "/files" test-file-id 1 "event-log")
                 (http/get) (deref)
                 (resp->status+json)))))))
@@ -272,8 +270,6 @@
                   (resp->status+json))))
        (is (= [200 {"status" 200
                     "data"   [{"EventType"  "Goal"
-                               "min"        1.0
-                               "sec"        1.0
                                "Team"       "Team2"
                                "GamePart"   "Half1"
                                "Standart"   "Corner"

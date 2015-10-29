@@ -85,7 +85,7 @@
   "Checks that column names in EventLog sheet corresponds to attributes
   defined in EventType sheet. Returns nil or vector of errors."
   [attr-names event-log-columns]
-  (let [meta-columns ["min" "sec" "EventType"]
+  (let [meta-columns ["EventType"]
         event-log-cols (set event-log-columns)
         required-cols (set (concat meta-columns attr-names))
         missing-columns (set/difference required-cols event-log-cols)

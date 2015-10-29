@@ -24,8 +24,6 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           event {"EventType"  "Test"
-                 "min"        ""
-                 "sec"        ""
                  "Team"       ""
                  "BodyPart"   ""
                  "GamePart"   ""
@@ -56,8 +54,6 @@
           session-id (str (UUID/randomUUID))
           session (create! session-storage storage test-file-id session-id)
           event {"EventType"  "Goal"
-                 "min"        0.
-                 "sec"        0.
                  "Team"       "Team1"
                  "GamePart"   "Half1"
                  "Standart"   "Corner"
@@ -77,8 +73,6 @@
           session-id (str (UUID/randomUUID))
           session (create! session-storage storage test-file-id session-id)
           event1 {"EventType"  "Goal"
-                  "min"        0.
-                  "sec"        0.
                   "Team"       "Team1"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
@@ -86,8 +80,6 @@
                   "Accidental" "OwnGoal"
                   "Action"     ""}
           event2 {"EventType"  "Goal"
-                  "min"        1.
-                  "sec"        0.
                   "Team"       "Team2"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
@@ -106,8 +98,6 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           event1 {"EventType"  "Goal"
-                  "min"        0.
-                  "sec"        0.
                   "Team"       "Team1"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
@@ -115,8 +105,6 @@
                   "Accidental" "OwnGoal"
                   "Action"     ""}
           event2 {"EventType"  "Goal"
-                  "min"        1.
-                  "sec"        1.
                   "Team"       "Team2"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"

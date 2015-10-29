@@ -19,23 +19,21 @@
              "Standart"   ""
              "BodyPart"   ""
              "Accidental" ""
-             "Action"     "start"
-             "min"        0.0
-             "sec"        1.0}]
+             "Action"     "start"}]
            (get-event-log-rows file-wb)))))
 
 (deftest validate-columns-test
   (is (= [[::file/missing-columns #{"Attr1"}]]
-         (validate-columns ["Attr1"] ["min" "sec" "EventType"])))
+         (validate-columns ["Attr1"] ["EventType"])))
   (is (= [[::file/missing-columns #{"EventType"}]]
-         (validate-columns ["Attr1"] ["min" "sec" "Attr1"])))
+         (validate-columns ["Attr1"] ["Attr1"])))
   (is (= [[::file/extra-columns #{"Attr1"}]]
-         (validate-columns [] ["min" "sec" "EventType" "Attr1"])))
-  (is (= [[::file/missing-columns #{"min" "sec" "EventType"}]
+         (validate-columns [] ["EventType" "Attr1"])))
+  (is (= [[::file/missing-columns #{"EventType"}]
           [::file/extra-columns #{"Attr3"}]]
          (validate-columns ["Attr1" "Attr2"] ["Attr1" "Attr2" "Attr3"])))
-  (is (empty? (validate-columns ["Attr1" "Attr2"] ["min" "sec" "EventType" "Attr1" "Attr2"])))
-  (is (empty? (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2" "min" "sec"]))))
+  (is (empty? (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"])))
+  (is (empty? (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"]))))
 
 (deftest get-event-type-attrs-test
   (is (= []
@@ -141,8 +139,6 @@
   (testing "Consecutive appends"
     (let [file-wb (new-file-workbook test-file)
           event {"EventType"  "Match"
-                 "min"        0.
-                 "sec"        0.
                  "Team"       ""
                  "GamePart"   ""
                  "Standart"   ""
@@ -162,8 +158,6 @@
   (testing "Not empty"
     (let [file-wb (new-file-workbook test-file)
           event1 {"EventType"  "Match"
-                  "min"        0.
-                  "sec"        1.
                   "Team"       ""
                   "GamePart"   ""
                   "Standart"   ""
@@ -171,8 +165,6 @@
                   "Accidental" ""
                   "Action"     "start"}
           event2 {"EventType"  "Match"
-                  "min"        0.
-                  "sec"        2.
                   "Team"       ""
                   "GamePart"   ""
                   "Standart"   ""
@@ -186,8 +178,6 @@
 (deftest set-event-log-sheet!-test
   (let [file-wb (new-file-workbook test-file)
         event1 {"EventType"  "Match"
-                "min"        0.
-                "sec"        0.
                 "Team"       ""
                 "GamePart"   ""
                 "Standart"   ""
@@ -195,8 +185,6 @@
                 "Accidental" ""
                 "Action"     "start"}
         event2 {"EventType"  "Match"
-                "min"        1.
-                "sec"        0.
                 "Team"       ""
                 "GamePart"   ""
                 "Standart"   ""
