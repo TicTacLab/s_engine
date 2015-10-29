@@ -1,5 +1,9 @@
 (ns s-engine.web
-  (:require [compojure.core :refer (defroutes ANY GET POST PUT DELETE wrap-routes)]
+  (:require [clojure.string :as str]
+            [clojure.walk :refer [keywordize-keys]]
+            [compojure.core
+             :refer
+             (defroutes ANY GET POST PUT DELETE wrap-routes)]
             [schema.core :as s]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log]
@@ -11,10 +15,10 @@
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
-            [clojure.walk :refer [keywordize-keys]]
             [s-engine.session :as session]
             [s-engine.storage.file :as file])
-  (:import (org.eclipse.jetty.server Server)))
+  (:import (org.eclipse.jetty.server Server)
+           (java.io File)))
 
 
 ;;
@@ -91,6 +95,20 @@
     (log/error "Got no file")
     error-400-mfp))
 
+(defn check-valid-file
+  [^File file]
+  (some->> (file/validate-file file)
+           (not-empty)
+           (map (fn [[err val]]
+                  (case err
+                    ::file/missing-columns
+                    (format "missing columns: %s" (str/join ", " val))
+                    ::file/extra-columns
+                    (format "extra columns: %s" (str/join ", " val)))))
+           (interpose "; ")
+           (apply str)
+           (error-response 400 "MFP")))
+
 (defn- check-event-id [e-id]
   (when (empty? e-id)
     (log/info "Invalid event id" e-id)
@@ -145,6 +163,7 @@
   (let [file-id (try-string->json (:file-id params))]
     (resp-> (check-file-id file-id)
             (check-file params)
+            (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
               (success-response 201)))))
@@ -156,6 +175,7 @@
     (resp-> (check-file-id file-id)
             (check-file-exists storage file-id)
             (check-file params)
+            (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
               (success-response 204)))))
