@@ -16,7 +16,8 @@
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
             [s-engine.session :as session]
-            [s-engine.storage.file :as file])
+            [s-engine.storage.file :as file]
+            [clojure.java.io :as io])
   (:import (org.eclipse.jetty.server Server)
            (java.io File)))
 
@@ -29,16 +30,27 @@
   ([status]
    (success-response status nil))
   ([status json-body]
-   {:status status
-    :body   (when json-body
-              (json/generate-string {:status status
-                                     :data   json-body}))}))
+   (-> {:status status
+        :body   (when json-body
+                  (json/generate-string {:status status
+                                         :data   json-body}))}
+       (res/content-type "application/json")
+       (res/charset "utf-8"))))
 
 (defn error-response [status code message]
-  {:status status
-   :body   (json/generate-string {:status status
-                                  :errors [{:code    code
-                                            :message message}]})})
+  (-> {:status status
+       :body   (json/generate-string {:status status
+                                      :errors [{:code    code
+                                                :message message}]})}
+      (res/content-type "application/json")
+      (res/charset "utf-8")))
+
+(defn file-response
+  [bytes-arr file-name]
+  (-> (res/response (io/input-stream bytes-arr))
+      (res/content-type "application/octet-stream")
+      (res/header "Content-Length" (count bytes-arr))
+      (res/header "Content-Disposition" (format "attachment; filename=%s" file-name))))
 
 (def error-400-mfp (error-response 400 "MFP" "Malformed body"))
 (def error-404-fnf (error-response 404 "FNF" "File not found"))
@@ -63,13 +75,6 @@
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
-
-(defn wrap-json-content-type [h]
-  (fn [req]
-    (-> req
-        (h)
-        (res/content-type "application/json")
-        (res/charset "utf-8"))))
 
 (defn wrap-errors [h]
   (fn [r]
@@ -248,6 +253,14 @@
                (session/get-out)
                (success-response 200))))
 
+(defn session-get-workbook
+  [{{:keys [event-id]} :params
+    {:keys [session-storage]} :web}]
+  (resp-> (check-session-exists session-storage event-id)
+          (let [session (session/get-one session-storage event-id)
+                [file-name workbook-bytes] (session/get-workbook session)]
+            (file-response workbook-bytes file-name))))
+
 (defroutes routes
            (POST "/files/:file-id/upload" req (file-upload req))
            (POST "/files/:file-id" req (file-replace req))
@@ -259,6 +272,7 @@
            (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
            (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
            (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
+           (GET "/files/:file-id/:event-id/workbook" req (session-get-workbook req))
 
            (ANY "/*" _ error-404-rnf))
 
@@ -268,8 +282,7 @@
       (wrap-keyword-params)
       (wrap-multipart-params)
       (wrap-with-web web)
-      (wrap-errors)
-      (wrap-json-content-type)))
+      (wrap-errors)))
 
 (defrecord Web [host port server storage api]
   component/Lifecycle

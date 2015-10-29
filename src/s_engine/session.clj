@@ -47,6 +47,9 @@
   [session]
   (file/get-out-rows (:file-wb session)))
 
+(defn get-workbook [session]
+  (file/get-workbook (:file-wb session)))
+
 (defn create!
   "Creates new session."
   [session-storage storage file-id session-id]

@@ -304,6 +304,28 @@
                 (http/get) (deref)
                 (resp->status+json)))))))
 
+(deftest session-get-workbook-test
+  (with-started-system [system]
+    (load-test-file! system)
+    (let [{:keys [session-storage storage]} system
+          session-id (str (UUID/randomUUID))]
+      (is (= (resp->status+json error-404-fnf)
+             (-> (make-url "/files" test-file-id session-id "workbook")
+                 (http/get)
+                 (deref)
+                 (resp->status+json)))
+          "Session does not exist")
+      (session/create! session-storage storage test-file-id session-id)
+      (let [resp (-> (make-url "/files" test-file-id session-id "workbook")
+                     (http/get)
+                     (deref))]
+        (is (= 200 (:status resp)))
+        (is (= "application/octet-stream"
+               (-> resp :headers :content-type)))
+        (is (= "attachment; filename=test-model.xlsx"
+               (-> resp :headers :content-disposition)))
+        (is (pos? (-> resp :headers :content-length (Integer/parseInt))))))))
+
 (deftest session-finalize-test
   (with-started-system [system]
     (load-test-file! system)

@@ -1,11 +1,13 @@
 (ns s-engine.storage.file
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
-           (com.datastax.driver.core.utils Bytes))
+           (com.datastax.driver.core.utils Bytes)
+           (java.io ByteArrayOutputStream OutputStream))
   (:require [clojure.set :as set]
             [malcolmx.core :as mx]
             [clojurewerkz.cassaforte.cql :as cql]
-            [clojurewerkz.cassaforte.query :refer [where columns limit]]))
+            [clojurewerkz.cassaforte.query :refer [where columns limit]]
+            [clojure.java.io :as io]))
 
 (def ^:const event-type-sheet "EventType")
 (def ^:const event-log-sheet "EventLog")
@@ -65,7 +67,7 @@
 ;; ModelWorkbook
 ;;
 
-(defrecord FileWorkbook [workbook event-types])
+(defrecord FileWorkbook [workbook event-types file-name])
 
 (defn get-event-type-attrs
   "Returns seq of attribute names declared in EventType sheet"
@@ -139,11 +141,12 @@
 (defn clear-event-log! [file-wb]
   (mx/remove-rows! (:workbook file-wb) event-log-sheet 1))
 
-(defn new-file-workbook [file]
+(defn new-file-workbook
+  [file]
   (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)
-        file-wb (->FileWorkbook workbook event-types)]
+        file-wb (->FileWorkbook workbook event-types (:file-name file))]
     (clear-event-log! file-wb)
     file-wb))
 
@@ -176,6 +179,16 @@
   [file-wb events]
   (clear-event-log! file-wb)
   (append-events! file-wb events))
+
+(defn get-workbook
+  "Returns name of workbook file and workbook contents as bytes array."
+  [file-wb]
+  (let [^Workbook workbook (:workbook file-wb)
+        ^OutputStream out (ByteArrayOutputStream.)
+        _ (.write workbook out)
+        bytes-arr (.toByteArray out)]
+    (.close out)
+    [(:file-name file-wb) bytes-arr]))
 
 (defn get-out-rows
   "Returns contents of out sheet"
