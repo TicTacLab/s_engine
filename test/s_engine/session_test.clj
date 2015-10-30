@@ -111,7 +111,7 @@
                   "BodyPart"   "Head"
                   "Accidental" "OwnGoal"
                   "Action"     ""}
-          session-id (str (UUID/randomUUID))
+          session-id (>trace (str (UUID/randomUUID)))
           session (create! session-storage storage test-file-id session-id)]
       (append-event! storage session event1)
       (set-events! storage session [event2])

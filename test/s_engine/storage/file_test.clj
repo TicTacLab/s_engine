@@ -23,17 +23,16 @@
            (get-event-log-rows file-wb)))))
 
 (deftest validate-columns-test
-  (is (= [[::file/missing-columns #{"Attr1"}]]
+  (is (= [#{"Attr1"} nil]
          (validate-columns ["Attr1"] ["EventType"])))
-  (is (= [[::file/missing-columns #{"EventType"}]]
+  (is (= [#{"EventType"} nil]
          (validate-columns ["Attr1"] ["Attr1"])))
-  (is (= [[::file/extra-columns #{"Attr1"}]]
+  (is (= [nil #{"Attr1"}]
          (validate-columns [] ["EventType" "Attr1"])))
-  (is (= [[::file/missing-columns #{"EventType"}]
-          [::file/extra-columns #{"Attr3"}]]
+  (is (= [#{"EventType"} #{"Attr3"}]
          (validate-columns ["Attr1" "Attr2"] ["Attr1" "Attr2" "Attr3"])))
-  (is (empty? (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"])))
-  (is (empty? (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"]))))
+  (is (= [nil nil] (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"])))
+  (is (= [nil nil] (validate-columns ["Attr1" "Attr2"] ["EventType" "Attr1" "Attr2"]))))
 
 (deftest get-event-type-attrs-test
   (is (= []

@@ -1,13 +1,12 @@
 (ns s-engine.storage.file
+  (:require [malcolmx.core :as mx]
+            [clojurewerkz.cassaforte.cql :as cql]
+            [clojurewerkz.cassaforte.query :refer [where columns limit]]
+            [clojure.data :refer [diff]])
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes)
-           (java.io ByteArrayOutputStream OutputStream))
-  (:require [clojure.set :as set]
-            [malcolmx.core :as mx]
-            [clojurewerkz.cassaforte.cql :as cql]
-            [clojurewerkz.cassaforte.query :refer [where columns limit]]
-            [clojure.java.io :as io]))
+           (java.io ByteArrayOutputStream OutputStream)))
 
 (def ^:const event-type-sheet "EventType")
 (def ^:const event-log-sheet "EventLog")
@@ -85,21 +84,13 @@
 
 (defn validate-columns
   "Checks that column names in EventLog sheet corresponds to attributes
-  defined in EventType sheet. Returns nil or vector of errors."
+  defined in EventType sheet. Vector [missing-attrs extra-attrs]."
   [attr-names event-log-columns]
-  (let [meta-columns [event-type-column]
-        event-log-cols (set event-log-columns)
-        required-cols (set (concat meta-columns attr-names))
-        missing-columns (set/difference required-cols event-log-cols)
-        extra-columns (set/difference event-log-cols required-cols)]
-    (concat
-      (when (seq missing-columns)
-        [[::missing-columns missing-columns]])
-      (when (seq extra-columns)
-        [[::extra-columns extra-columns]]))))
+  (let [required (conj (set attr-names) event-type-column)]
+    (take 2 (diff required (set event-log-columns)))))
 
-(defn validate-file
-  "Checks that given file contains valid model workbook."
+(defn validate-event-log-header
+  "Checks that given file contains valid EventLog header."
   [^File file]
   (let [workbook (mx/parse (read-bytes file))
         attrs (-> workbook

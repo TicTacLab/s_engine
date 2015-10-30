@@ -17,7 +17,7 @@
 
 (defn- resp->status+json
   [{:keys [status body]}]
-  [status (json/parse-string body false)])
+  [status (json/parse-string body true)])
 
 (defn- resp->status+body
   [{:keys [status body]}]
@@ -65,59 +65,64 @@
     (load-test-file! system)
     (let [{:keys [storage]} system]
       (file/delete! storage test-file-id)
-      (is (= (resp->status+body error-400-mfp)
+      (is (= [400 (new-error 400 "MFP" "Invalid file id")]
              (-> (make-url "/files/sdsfdd/upload")
                  (http/post {:multipart []})
                  (deref)
-                 (resp->status+body)))
-          "Malformed file-id")
-      (is (= (resp->status+body error-400-mfp)
+                 (resp->status+json)))
+          "should check file-id")
+      (is (= [400 (new-error 400 "MFP" "No file sent")]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart []})
                  (deref)
-                 (resp->status+body)))
-          "No file given")
-      (is (= [400 {"status" 400
-                   "errors" [{"code"    "MFP"
-                              "message" "missing columns: Action; extra columns: Extra column"}]}]
+                 (resp->status+json)))
+          "shoudl check file for existance")
+      (is (= [400 (new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
                                           :content  (io/file invalid-file)
                                           :filename "test-model.xlsx"}]})
                  (deref)
                  (resp->status+json)))
-          "File has errors")
-      (is (= [201 ""]
+          "should check file EventLog header")
+      (is (= [400 (new-error 400 "MFP" "Invalid file type")]
+             (-> (make-url "/files" test-file-id "upload")
+                 (http/post {:multipart [{:name     "file"
+                                          :content  (io/file *file*)
+                                          :filename "test-model.xlsx"}]})
+                 (deref)
+                 (resp->status+json)))
+          "should check file type")
+      (is (= [200 ""]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
                                           :content  (io/file test-file)
                                           :filename "test-model.xlsx"}]})
                  (deref)
                  (resp->status+body)))
-          "File created succesfully")
+          "should upload file if there are no errors")
       (is (true? (file/exists? storage test-file-id))))))
 
 (deftest file-replace-test
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= (resp->status+body error-404-fnf)
+     (is (= [404 (new-error 404 "FNF" (format "File with id \"%s\" not found"
+                                              Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
                 (http/post {:multipart [{:name     "file"
                                          :content  (io/file test-file)
                                          :filename "test-model.xlsx"}]})
                 (deref)
-                (resp->status+body)))
-         "File does not exist")
-     (is (= (resp->status+body error-400-mfp)
+                (resp->status+json)))
+         "should validate file for existance in db")
+     (is (= [400 (new-error 400 "MFP" "No file sent")]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart []})
                 (deref)
-                (resp->status+body)))
-         "No file given")
-     (is (= [400 {"status" 400
-                  "errors" [{"code" "MFP"
-                             "message" "missing columns: Action; extra columns: Extra column"}]}]
+                (resp->status+json)))
+         "should validate file existance in params")
+     (is (= [400 (new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
                                          :content  (io/file invalid-file)
@@ -125,7 +130,7 @@
                 (deref)
                 (resp->status+json)))
          "File has errors")
-     (is (= [204 ""]
+     (is (= [200 ""]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
                                          :content  (io/file test-file)

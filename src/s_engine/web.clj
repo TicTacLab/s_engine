@@ -5,6 +5,7 @@
              :refer
              (defroutes ANY GET POST PUT DELETE wrap-routes)]
             [schema.core :as s]
+            [schema.coerce :as c]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log]
             [ring.middleware
@@ -17,7 +18,8 @@
             [cheshire.core :as json]
             [s-engine.session :as session]
             [s-engine.storage.file :as file]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [malcolmx.core :as mx])
   (:import (org.eclipse.jetty.server Server)
            (java.io File)))
 
@@ -25,6 +27,11 @@
 ;;
 ;; Utils
 ;;
+
+(defn new-error [status code message]
+  {:status status
+   :errors [{:code    code
+             :message message}]})
 
 (defn success-response
   ([status]
@@ -38,10 +45,10 @@
        (res/charset "utf-8"))))
 
 (defn error-response [status code message]
+  (log/errorf "Status: \"%s\", Code: \"%s\", Message \"%s\"."
+              status code message)
   (-> {:status status
-       :body   (json/generate-string {:status status
-                                      :errors [{:code    code
-                                                :message message}]})}
+       :body   (json/generate-string (new-error status code message))}
       (res/content-type "application/json")
       (res/charset "utf-8")))
 
@@ -94,26 +101,6 @@
            ~@(interleave (repeat g) (map pstep forms))]
        ~g)))
 
-(defn check-file
-  [params]
-  (when-not (:file params)
-    (log/error "Got no file")
-    error-400-mfp))
-
-(defn check-valid-file
-  [^File file]
-  (some->> (file/validate-file file)
-           (not-empty)
-           (map (fn [[err val]]
-                  (case err
-                    ::file/missing-columns
-                    (format "missing columns: %s" (str/join ", " val))
-                    ::file/extra-columns
-                    (format "extra columns: %s" (str/join ", " val)))))
-           (interpose "; ")
-           (apply str)
-           (error-response 400 "MFP")))
-
 (defn- check-event-id [e-id]
   (when (empty? e-id)
     (log/info "Invalid event id" e-id)
@@ -134,10 +121,11 @@
     (log/info "Session with id already created" s-id)
     error-400-mfp))
 
-(defn- check-file-exists [storage file-id]
-  (when-not (file/exists? storage file-id)
-    (log/info "File with id not found" file-id)
-    error-404-fnf))
+(defn check-file-exists [h]
+  (fn [{file-id :file-id :as p} {storage :storage :as w}]
+    (if (file/exists? storage file-id)
+      (h p w)
+      (error-response 404 "FNF" (format "File with id \"%s\" not found" file-id)))))
 
 (def ^:const event-schema
   {(s/required-key "EventType") s/Str
@@ -159,38 +147,74 @@
 ;; Routes
 ;;
 
-(defn- write-file! [storage file-id file file-name]
-  (let [file-bytes (file/read-bytes file)]
-    (file/write! storage file-id file-bytes file-name)))
+(defn call [f obj web]
+  (>trace ((f identity) obj web)))
 
-(defn file-upload
-  [{{:keys [storage]} :web params :params}]
-  (let [file-id (try-string->json (:file-id params))]
-    (resp-> (check-file-id file-id)
-            (check-file params)
-            (check-valid-file (-> params :file :tempfile))
-            (let [{:keys [filename tempfile]} (:file params)]
-              (write-file! storage file-id tempfile filename)
-              (success-response 201)))))
+(defn write-file! [h]
+  (fn [{file-id :file-id file :file} {storage :storage}]
+    (let [file-bytes (file/read-bytes (:tempfile file))]
+      (file/write! storage file-id file-bytes (:filename file))
+      (success-response 200))))
 
-(defn file-replace
-  [{params :params
-    {:keys [storage]} :web}]
-  (let [file-id (try-string->json (:file-id params))]
-    (resp-> (check-file-id file-id)
-            (check-file-exists storage file-id)
-            (check-file params)
-            (check-valid-file (-> params :file :tempfile))
-            (let [{:keys [filename tempfile]} (:file params)]
-              (write-file! storage file-id tempfile filename)
-              (success-response 204)))))
+(defn string->int [s]
+  (try
+    (Integer/valueOf s)
+    (catch Exception e
+      (println (.getLocalizedMessage e))
+      nil)))
+
+(defn parse-file-id [h]
+  (fn [params web]
+    (if-let [file-id (string->int (:file-id params))]
+      (h (assoc params :file-id file-id) web)
+      (error-response 400 "MFP" "Invalid file id"))))
+
+(defn check-file-present [h]
+  (fn [params web]
+    (let [file (:file params)]
+      (if (and file (:tempfile file))
+        (h params web)
+        (error-response 400 "MFP" "No file sent")))))
+
+(defn check-file-type [h]
+  (fn [params web]
+    (let [tempfile (:tempfile (:file params))]
+      (if (or (mx/excel-file? tempfile "xlsx")
+              (mx/excel-file? tempfile "xls"))
+        (h params web)
+        (error-response 400 "MFP" "Invalid file type")))))
+
+(defn check-file-validity [h]
+  (fn [params web]
+    (let [[missing extra] (file/validate-event-log-header (:tempfile (:file params)))]
+      (if (or (seq missing) (seq extra))
+        (->> (format "Missing Columns: [%s]; Extra Columns [%s];"
+                     (str/join ", " missing)
+                     (str/join ", " extra))
+             (error-response 400 "MFP"))
+        (h params web)))))
+
+(def file-upload
+  (comp parse-file-id
+        check-file-present
+        check-file-type
+        check-file-validity
+        write-file!))
+
+(def file-replace
+  (comp parse-file-id
+        check-file-exists
+        check-file-present
+        check-file-type
+        check-file-validity
+        write-file!))
 
 (defn file-delete
   [{params             :params
     {:keys [storage]}  :web}]
   (let [file-id (try-string->json (:file-id params))]
     (resp-> (check-file-id file-id)
-            (check-file-exists storage file-id)
+            ((check-file-exists identity) storage file-id)
             (do
               (file/delete! storage file-id)
               (success-response 204)))))
@@ -202,7 +226,7 @@
     (resp-> (check-event-id event-id)
             (check-session-not-exists session-storage event-id)
             (check-file-id file-id)
-            (check-file-exists storage file-id)
+            ((check-file-exists identity) storage file-id)
             (do
               (session/create! session-storage storage file-id event-id)
               (success-response 201)))))
@@ -262,19 +286,19 @@
             (file-response bytes file-name))))
 
 (defroutes routes
-           (POST "/files/:file-id/upload" req (file-upload req))
-           (POST "/files/:file-id" req (file-replace req))
-           (DELETE "/files/:file-id" req (file-delete req))
+  (POST "/files/:file-id/upload" {:keys [web params]} (call file-upload params web))
+  (POST "/files/:file-id" {:keys [web params]} (call file-replace params web))
+  (DELETE "/files/:file-id" req (file-delete req))
 
-           (POST "/files/:file-id/:event-id" req (session-create req))
-           (GET "/files/:file-id/:event-id" req (session-get-workbook req))
-           (DELETE "/files/:file-id/:event-id" req (session-finalize req))
-           (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
-           (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
-           (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
-           (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
+  (POST "/files/:file-id/:event-id" req (session-create req))
+  (GET "/files/:file-id/:event-id" req (session-get-workbook req))
+  (DELETE "/files/:file-id/:event-id" req (session-finalize req))
+  (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
+  (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
+  (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
+  (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
 
-           (ANY "/*" _ error-404-rnf))
+  (ANY "/*" _ error-404-rnf))
 
 (defn app [web]
   (-> routes
