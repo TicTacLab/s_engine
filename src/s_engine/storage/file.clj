@@ -1,9 +1,8 @@
 (ns s-engine.storage.file
-  (:require [clojure.set :as set]
-            [malcolmx.core :as mx]
+  (:require [malcolmx.core :as mx]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]
-            [clojure.java.io :as io])
+            [clojure.data :refer [diff]])
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes)

@@ -10,8 +10,19 @@
              [keyword-params :refer (wrap-keyword-params)]
              [multipart-params :refer (wrap-multipart-params)]]
             [ring.util.request :as req]
-            [ring.adapter.jetty :as jetty])
+            [ring.adapter.jetty :as jetty]
+            [s-engine.storage.file :as file])
   (:import (org.eclipse.jetty.server Server)))
+
+(defn files-list
+  [{{:keys [storage]} :web}]
+  (->> (file/get-all storage)
+       (hd/success-response 200)))
+
+(def file-download
+  (comp hd/parse-file-id
+        hd/check-file-exists
+        hd/download-file))
 
 (def file-upload
   (comp hd/parse-file-id
@@ -72,26 +83,14 @@
   (comp hd/check-event-id
         hd/check-session-exists
         hd/get-workbook))
-(defn files-list
-  [{{:keys [storage]} :web}]
-  (->> (file/get-all storage)
-       (success-response 200)))
-
-(defn file-download
-  [{:keys [params web]}]
-  (let [{:keys [storage]} web
-        file-id (try-string->json (:file-id params))]
-    (resp-> (check-file-id file-id)
-            (check-file-exists storage file-id)
-            (let [{:keys [file file-name]} (file/get-one storage file-id)]
-              (file-response file file-name)))))
-
 
 (defroutes routes
-  (GET "/files" req (files-list req))
-  (GET "/files/:file-id" req (file-download req))
+  (GET "/files" req
+    (files-list req))
 
-  (GET "/files/")
+  (GET "/files/:file-id" {:keys [web params]}
+    (hd/call file-download params web))
+
   (POST "/files/:file-id/upload" {:keys [web params]}
     (hd/call file-upload params web))
 
@@ -129,19 +128,6 @@
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
-(defn files-list
-  [{{:keys [storage]} :web}]
-  (->> (file/get-all storage)
-       (success-response 200)))
-
-(defn file-download
-  [{:keys [params web]}]
-  (let [{:keys [storage]} web
-        file-id (try-string->json (:file-id params))]
-    (resp-> (check-file-id file-id)
-            (check-file-exists storage file-id)
-            (let [{:keys [file file-name]} (file/get-one storage file-id)]
-              (file-response file file-name))))) 
 
 (defn wrap-errors [h]
   (fn [r]

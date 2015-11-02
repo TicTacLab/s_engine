@@ -139,6 +139,11 @@
           {:keys [file-name bytes]} (session/get-workbook session)]
       (file-response bytes file-name))))
 
+(defn download-file [h]
+  (fn [{file-id :file-id} {storage :storage}]
+    (let [{:keys [file file-name]} (file/get-one storage file-id)]
+      (file-response file file-name))))
+
 (defn parse-file-id [h]
   (fn [params web]
     (if-let [file-id (string->int (:file-id params))]

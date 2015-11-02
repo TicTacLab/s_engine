@@ -1,9 +1,10 @@
 (ns s-engine.storage.file-test
   (:require [clojure.test :refer :all]
-            [s-engine.storage.file :refer :all :as file]))
+            [s-engine.storage.file :refer :all :as file])
+  (:import (java.util Date)))
 
 (def ^:const test-file
-  (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" "AutoCalc_Soccer_EventLog.xlsx"))
+  (->File 1 "test/resources/AutoCalc_Soccer_EventLog.xlsx" "AutoCalc_Soccer_EventLog.xlsx" (Date.)))
 
 (deftest get-event-log-sheet-test
   (let [file-wb (new-file-workbook test-file)
