@@ -308,10 +308,12 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           session-id (str (UUID/randomUUID))]
-     (is (= (resp->status+body error-404-fnf)
+     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                              session-id))]
             (-> (make-url "/files" test-file-id session-id "settlements")
-                http/get deref resp->status+body))
+                http/get deref resp->status+json))
          "Session does not exist")
+
      (session/create! session-storage storage test-file-id session-id)
      (is (= [200 {"status" 200
                   "data"   [{"Market name" "MATCH_BETTING"
@@ -325,7 +327,7 @@
                              "Calc"        "lose"}]}]
             (-> (make-url "/files" test-file-id session-id "settlements")
                 (http/get) (deref)
-                (resp->status+json)))))))
+                (resp->status+json :keywordize false)))))))
 
 (deftest session-get-workbook-test
   (with-started-system [system]

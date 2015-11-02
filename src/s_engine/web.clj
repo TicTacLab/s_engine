@@ -176,6 +176,12 @@
       (session/set-events! storage session events)
       (success-response 200 (session/get-out session)))))
 
+(defn get-settlements [h]
+  (fn [{:keys [event-id]} {:keys [session-storage]}]
+    (->> (session/get-one session-storage event-id)
+         (session/get-out)
+         (success-response 200))))
+
 (defn string->int [s]
   (try
     (Integer/valueOf s)
@@ -282,13 +288,10 @@
         check-events
         set-events!))
 
-(defn session-get-settlements
-  [{{:keys [event-id]}        :params
-    {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists-leg session-storage event-id)
-          (->> (session/get-one session-storage event-id)
-               (session/get-out)
-               (success-response 200))))
+(def session-get-settlements
+  (comp check-event-id
+        check-session-exists
+        get-settlements))
 
 (defn session-get-workbook
   [{{:keys [event-id]} :params
@@ -328,8 +331,8 @@
     (let [events (req/body-string r)]
       (call session-set-event-log (assoc params :events events) web)))
 
-  (GET "/files/:file-id/:event-id/settlements" req
-    (session-get-settlements req))
+  (GET "/files/:file-id/:event-id/settlements" {:keys [web params]}
+    (call session-get-settlements params web))
 
   (ANY "/*" _ error-404-rnf))
 
