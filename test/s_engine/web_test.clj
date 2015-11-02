@@ -17,7 +17,7 @@
 
 (defn- resp->status+json
   [{:keys [status body]} & {kw? :keywordize :or {kw? true}}]
-  [status (json/parse-string body (>trace kw?))])
+  [status (json/parse-string body kw?)])
 
 (defn- resp->status+body
   [{:keys [status body]}]
@@ -235,7 +235,6 @@
             (-> (make-url "/files" test-file-id session-id "event-log/append")
                 (http/post {:body (json/generate-string events)})
                 (deref)
-                (>trace )
                 (resp->status+json :keywordize false))))
      (is (= [200 {"status" 200
                   "data"   [{"Accidental" "OwnGoal"
@@ -268,12 +267,15 @@
                  "GamePart"   "Half1"
                  "Standart"   "Corner"
                  "BodyPart"   "Head"
-                 "Accidental" "OwnGoal"}]
-     (is (= (resp->status+body error-404-fnf)
-            (-> (make-url "/files" test-file-id "1" "event-log/set")
-                http/post deref resp->status+body))
+                 "Accidental" "OwnGoal"}
+          session-id (str (UUID/randomUUID))]
+     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                              session-id))]
+            (-> (make-url "/files" test-file-id session-id "event-log/set")
+                http/post deref resp->status+json))
          "Session does not exist")
-     (let [session (session/create! session-storage storage test-file-id "1")]
+
+     (let [session (session/create! session-storage storage test-file-id session-id)]
        (session/append-event! storage session event1)
        (is (= [200 {"status" 200
                     "data"   [{"Market name" "MATCH_BETTING"
@@ -285,10 +287,10 @@
                               {"Market name" "MATCH_BETTING"
                                "Outcome"     "AWAY"
                                "Calc"        "win"}]}]
-              (-> (make-url "/files" test-file-id 1 "event-log/set")
+              (-> (make-url "/files" test-file-id session-id "event-log/set")
                   (http/post {:body (json/generate-string [event2])})
                   (deref)
-                  (resp->status+json))))
+                  (resp->status+json :keywordize false))))
        (is (= [200 {"status" 200
                     "data"   [{"EventType"  "Goal"
                                "Team"       "Team2"
@@ -297,9 +299,9 @@
                                "BodyPart"   "Head"
                                "Accidental" "OwnGoal"
                                "Action"     ""}]}]
-              (-> (make-url "/files" test-file-id 1 "event-log")
+              (-> (make-url "/files" test-file-id session-id "event-log")
                   (http/get) (deref)
-                  (resp->status+json))))))))
+                  (resp->status+json :keywordize false))))))))
 
 (deftest session-get-settlements-test
   (with-started-system [system]

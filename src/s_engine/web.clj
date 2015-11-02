@@ -170,6 +170,12 @@
       (session/append-event! storage session events)
       (success-response 200 (session/get-out session)))))
 
+(defn set-events! [h]
+  (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
+    (let [session (session/get-one session-storage event-id)]
+      (session/set-events! storage session events)
+      (success-response 200 (session/get-out session)))))
+
 (defn string->int [s]
   (try
     (Integer/valueOf s)
@@ -211,7 +217,7 @@
 (defn parse-events [h]
   (fn [{events-str :events :as p} w]
     (if-let [events (json->clj events-str)]
-      (h (>trace (assoc p :events events)) w)
+      (h (assoc p :events events) w)
       (error-response 400 "MFP" "Malformed json body"))))
 
 (defn check-events [h]
@@ -269,25 +275,12 @@
         check-events
         append-events!))
 
-#_(defn session-append-event
-  [{{:keys [event-id]}                :params
-    {:keys [session-storage storage]} :web :as r}]
-  (let [event-str (req/body-string r)
-        event (try-string->json event-str)]
-    (resp-> (check-session-exists-leg session-storage event-id)
-            (check-valid-events [event])
-            )))
-
-(defn session-set-event-log
-  [{{:keys [event-id] :as p}                :params
-    {:keys [session-storage storage] :as w} :web :as r}]
-  (let [events-str (req/body-string r)
-        events (try-string->json events-str)]
-    (resp-> (check-session-exists-leg session-storage event-id)
-            ((check-events identity) p w)
-            (let [session (session/get-one session-storage event-id)]
-              (session/set-events! storage session events)
-              (success-response 200 (session/get-out session))))))
+(def session-set-event-log
+  (comp check-event-id
+        check-session-exists
+        parse-events
+        check-events
+        set-events!))
 
 (defn session-get-settlements
   [{{:keys [event-id]}        :params
@@ -331,8 +324,9 @@
     (let [events (req/body-string r)]
       (call session-append-event (assoc params :events events) web)))
 
-  (POST "/files/:file-id/:event-id/event-log/set" req
-    (session-set-event-log req))
+  (POST "/files/:file-id/:event-id/event-log/set" {:keys [web params] :as r}
+    (let [events (req/body-string r)]
+      (call session-set-event-log (assoc params :events events) web)))
 
   (GET "/files/:file-id/:event-id/settlements" req
     (session-get-settlements req))
