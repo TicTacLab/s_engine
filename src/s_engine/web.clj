@@ -72,8 +72,26 @@
   (comp hd/check-event-id
         hd/check-session-exists
         hd/get-workbook))
+(defn files-list
+  [{{:keys [storage]} :web}]
+  (->> (file/get-all storage)
+       (success-response 200)))
+
+(defn file-download
+  [{:keys [params web]}]
+  (let [{:keys [storage]} web
+        file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
+            (check-file-exists storage file-id)
+            (let [{:keys [file file-name]} (file/get-one storage file-id)]
+              (file-response file file-name)))))
+
 
 (defroutes routes
+  (GET "/files" req (files-list req))
+  (GET "/files/:file-id" req (file-download req))
+
+  (GET "/files/")
   (POST "/files/:file-id/upload" {:keys [web params]}
     (hd/call file-upload params web))
 
@@ -111,6 +129,19 @@
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
+(defn files-list
+  [{{:keys [storage]} :web}]
+  (->> (file/get-all storage)
+       (success-response 200)))
+
+(defn file-download
+  [{:keys [params web]}]
+  (let [{:keys [storage]} web
+        file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
+            (check-file-exists storage file-id)
+            (let [{:keys [file file-name]} (file/get-one storage file-id)]
+              (file-response file file-name))))) 
 
 (defn wrap-errors [h]
   (fn [r]
