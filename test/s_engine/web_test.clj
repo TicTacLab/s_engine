@@ -16,8 +16,8 @@
     (format "http://localhost:%d%s" port path)))
 
 (defn- resp->status+json
-  [{:keys [status body]}]
-  [status (json/parse-string body true)])
+  [{:keys [status body]} & {kw? :keywordize :or {kw? true}}]
+  [status (json/parse-string body (>trace kw?))])
 
 (defn- resp->status+body
   [{:keys [status body]}]
@@ -35,7 +35,7 @@
   (is (= {:status 200}
          (resp-> :1 {:status 200} {:status 300}))))
 
-(deftest check-valid-events-test
+#_(deftest check-valid-events-test
   (is (not (nil? (check-valid-events ""))))
   (is (not (nil? (check-valid-events []))))
   (is (not (nil? (check-valid-events [{}]))))
@@ -207,19 +207,21 @@
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage session-storage]} system
-         event {"EventType"  "Goal"
-                "min"        1.
-                "sec"        1.
-                "Team"       "Team1"
-                "GamePart"   "Half1"
-                "Standart"   "Corner"
-                "BodyPart"   "Head"
-                "Accidental" "OwnGoal"}]
-     (is (= (resp->status+body error-404-fnf)
-            (-> (make-url "/files" test-file-id "1" "event-log/append")
-                http/post deref resp->status+body))
+         events [{"EventType"  "Goal"
+                  "min"        1.
+                  "sec"        1.
+                  "Team"       "Team1"
+                  "GamePart"   "Half1"
+                  "Standart"   "Corner"
+                  "BodyPart"   "Head"
+                  "Accidental" "OwnGoal"}]
+          session-id (str (UUID/randomUUID))]
+     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                              session-id))]
+            (-> (make-url "/files" test-file-id session-id "event-log/append")
+                http/post deref resp->status+json))
          "Session does not exist")
-     (session/create! session-storage storage test-file-id "1")
+     (session/create! session-storage storage test-file-id session-id)
      (is (= [200 {"status" 200
                   "data"   [{"Market name" "MATCH_BETTING"
                              "Outcome"     "HOME"
@@ -230,10 +232,11 @@
                             {"Market name" "MATCH_BETTING"
                              "Outcome"     "AWAY"
                              "Calc"        "lose"}]}]
-            (-> (make-url "/files" test-file-id 1 "event-log/append")
-                (http/post {:body (json/generate-string event)})
+            (-> (make-url "/files" test-file-id session-id "event-log/append")
+                (http/post {:body (json/generate-string events)})
                 (deref)
-                (resp->status+json))))
+                (>trace )
+                (resp->status+json :keywordize false))))
      (is (= [200 {"status" 200
                   "data"   [{"Accidental" "OwnGoal"
                              "Action"     ""
@@ -242,9 +245,9 @@
                              "GamePart"   "Half1"
                              "Standart"   "Corner"
                              "Team"       "Team1"}]}]
-            (-> (make-url "/files" test-file-id 1 "event-log")
+            (-> (make-url "/files" test-file-id session-id "event-log")
                 (http/get) (deref)
-                (resp->status+json)))))))
+                (resp->status+json :keywordize false)))))))
 
 (deftest session-set-event-log-test
   (with-started-system [system]

@@ -26,10 +26,10 @@
 
 (defn append-event!
   "Add event to session's event log"
-  [storage session event]
+  [storage session events]
   (let [{:keys [file-wb]} session]
-    (file/append-events! file-wb [event])
-    (ev/append! storage (:id session) [event])))
+    (file/append-events! file-wb events)
+    (ev/append! storage (:id session) events)))
 
 (defn get-events
   "Get event log of session as sequence of events"

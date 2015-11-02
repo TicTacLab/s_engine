@@ -71,6 +71,13 @@
     (catch Exception _
       value)))
 
+(defn json->clj [s]
+  (try
+    (json/parse-string s false)
+    (catch Exception e
+      (log/error e "Error parsing json")
+      nil)))
+
 (defn wrap-with-web [h web]
   (fn [req]
     (h (assoc req :web web))))
@@ -122,28 +129,12 @@
       (h p w)
       (error-response 404 "FNF" (format "File with id '%s' not found" file-id)))))
 
-(def ^:const event-schema
-  {(s/required-key "EventType") s/Str
-   (s/required-key "min")       s/Num
-   (s/required-key "sec")       s/Num
-   String s/Any})
-
-(def ^:const events-schema
-  [(s/one event-schema "e")
-   event-schema])
-
-(defn check-valid-events [events]
-  (let [errors (s/check events-schema events)]
-    (when errors
-      (log/info "Events does not match schema" errors)
-      error-400-mfp)))
-
 ;;
 ;; Routes
 ;;
 
 (defn call [f obj web]
-  (>trace ((f identity) obj web)))
+  ((f identity) obj web))
 
 (defn write-file! [h]
   (fn [{file-id :file-id file :file} {storage :storage}]
@@ -172,6 +163,12 @@
     (->> (session/get-one session-storage event-id)
          (session/get-events)
          (success-response 200))))
+
+(defn append-events! [h]
+  (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
+    (let [session (session/get-one session-storage event-id)]
+      (session/append-event! storage session events)
+      (success-response 200 (session/get-out session)))))
 
 (defn string->int [s]
   (try
@@ -211,6 +208,24 @@
              (error-response 400 "MFP"))
         (h params web)))))
 
+(defn parse-events [h]
+  (fn [{events-str :events :as p} w]
+    (if-let [events (json->clj events-str)]
+      (h (>trace (assoc p :events events)) w)
+      (error-response 400 "MFP" "Malformed json body"))))
+
+(defn check-events [h]
+  (fn [{events :events :as p} w]
+    (if (sequential? events)
+      (if (>= (count events) 1)
+        (if (every? #(contains? % "EventType") events)
+          (h p w)
+          (error-response 400 "MFP" "All events should have 'EventType' key"))
+        (error-response 400 "MFP" "At least 1 event should be sent"))
+      (error-response 400 "MFP" "Events should be inside json array"))))
+
+
+
 (def file-upload
   (comp parse-file-id
         check-file-present
@@ -247,30 +262,29 @@
         check-session-exists
         get-event-log))
 
-#_(defn session-get-event-log
-  [{{:keys [event-id]}        :params
-    {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists-leg session-storage event-id)
-          ))
+(def session-append-event
+  (comp check-event-id
+        check-session-exists
+        parse-events
+        check-events
+        append-events!))
 
-(defn session-append-event
+#_(defn session-append-event
   [{{:keys [event-id]}                :params
     {:keys [session-storage storage]} :web :as r}]
   (let [event-str (req/body-string r)
         event (try-string->json event-str)]
     (resp-> (check-session-exists-leg session-storage event-id)
             (check-valid-events [event])
-            (let [session (session/get-one session-storage event-id)]
-              (session/append-event! storage session event)
-              (success-response 200 (session/get-out session))))))
+            )))
 
 (defn session-set-event-log
-  [{{:keys [event-id]}                :params
-    {:keys [session-storage storage]} :web :as r}]
+  [{{:keys [event-id] :as p}                :params
+    {:keys [session-storage storage] :as w} :web :as r}]
   (let [events-str (req/body-string r)
         events (try-string->json events-str)]
     (resp-> (check-session-exists-leg session-storage event-id)
-            (check-valid-events events)
+            ((check-events identity) p w)
             (let [session (session/get-one session-storage event-id)]
               (session/set-events! storage session events)
               (success-response 200 (session/get-out session))))))
@@ -292,17 +306,36 @@
             (file-response bytes file-name))))
 
 (defroutes routes
-  (POST "/files/:file-id/upload" {:keys [web params]} (call file-upload params web))
-  (POST "/files/:file-id" {:keys [web params]} (call file-replace params web))
-  (DELETE "/files/:file-id" {:keys [web params]} (call file-delete params web))
+  (POST "/files/:file-id/upload" {:keys [web params]}
+    (call file-upload params web))
 
-  (POST "/files/:file-id/:event-id" {:keys [web params]} (call session-create params web))
-  (GET "/files/:file-id/:event-id" req (session-get-workbook req))
-  (DELETE "/files/:file-id/:event-id" {:keys [web params]} (call session-finalize params web))
-  (GET "/files/:file-id/:event-id/event-log" {:keys [web params]} (call session-get-event-log params web))
-  (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
-  (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
-  (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))
+  (POST "/files/:file-id" {:keys [web params]}
+    (call file-replace params web))
+
+  (DELETE "/files/:file-id" {:keys [web params]}
+    (call file-delete params web))
+
+  (POST "/files/:file-id/:event-id" {:keys [web params]}
+    (call session-create params web))
+
+  (GET "/files/:file-id/:event-id" req
+    (session-get-workbook req))
+
+  (DELETE "/files/:file-id/:event-id" {:keys [web params]}
+    (call session-finalize params web))
+
+  (GET "/files/:file-id/:event-id/event-log" {:keys [web params]}
+    (call session-get-event-log params web))
+
+  (POST "/files/:file-id/:event-id/event-log/append" {:keys [web params] :as r}
+    (let [events (req/body-string r)]
+      (call session-append-event (assoc params :events events) web)))
+
+  (POST "/files/:file-id/:event-id/event-log/set" req
+    (session-set-event-log req))
+
+  (GET "/files/:file-id/:event-id/settlements" req
+    (session-get-settlements req))
 
   (ANY "/*" _ error-404-rnf))
 
