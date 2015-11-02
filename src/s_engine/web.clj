@@ -156,6 +156,11 @@
       (file/write! storage file-id file-bytes (:filename file))
       (success-response 200))))
 
+(defn delete-file! [h]
+  (fn [{file-id :file-id} {storage :storage}]
+    (file/delete! storage file-id)
+    (success-response 200)))
+
 (defn string->int [s]
   (try
     (Integer/valueOf s)
@@ -209,15 +214,10 @@
         check-file-validity
         write-file!))
 
-(defn file-delete
-  [{params             :params
-    {:keys [storage]}  :web}]
-  (let [file-id (try-string->json (:file-id params))]
-    (resp-> (check-file-id file-id)
-            ((check-file-exists identity) storage file-id)
-            (do
-              (file/delete! storage file-id)
-              (success-response 204)))))
+(def file-delete
+  (comp parse-file-id
+        check-file-exists
+        delete-file!))
 
 (defn session-create
   [{{:keys [event-id] :as params}     :params
@@ -288,7 +288,7 @@
 (defroutes routes
   (POST "/files/:file-id/upload" {:keys [web params]} (call file-upload params web))
   (POST "/files/:file-id" {:keys [web params]} (call file-replace params web))
-  (DELETE "/files/:file-id" req (file-delete req))
+  (DELETE "/files/:file-id" {:keys [web params]} (call file-delete params web))
 
   (POST "/files/:file-id/:event-id" req (session-create req))
   (GET "/files/:file-id/:event-id" req (session-get-workbook req))

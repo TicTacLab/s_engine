@@ -145,10 +145,11 @@
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= (resp->status+body error-404-fnf)
+     (is (= [404 (new-error 404 "FNF" (format "File with id \"%s\" not found"
+                                              Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
-                http/delete deref resp->status+body)))
-     (is (= [204 ""]
+                http/delete deref resp->status+json)))
+     (is (= [200 ""]
             (-> (make-url "/files" test-file-id)
                 http/delete deref resp->status+body)))
      (is (false? (file/exists? storage test-file-id))))))
