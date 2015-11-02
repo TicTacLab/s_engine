@@ -167,6 +167,12 @@
       (session/finalize! session-storage storage session)
       (success-response 204))))
 
+(defn get-event-log [h]
+  (fn [{:keys [event-id]} {:keys [session-storage]}]
+    (->> (session/get-one session-storage event-id)
+         (session/get-events)
+         (success-response 200))))
+
 (defn string->int [s]
   (try
     (Integer/valueOf s)
@@ -236,13 +242,16 @@
   (comp check-session-exists
         finalize-session!))
 
-(defn session-get-event-log
+(def session-get-event-log
+  (comp check-event-id
+        check-session-exists
+        get-event-log))
+
+#_(defn session-get-event-log
   [{{:keys [event-id]}        :params
     {:keys [session-storage]} :web}]
   (resp-> (check-session-exists-leg session-storage event-id)
-          (->> (session/get-one session-storage event-id)
-               (session/get-events)
-               (success-response 200))))
+          ))
 
 (defn session-append-event
   [{{:keys [event-id]}                :params
@@ -290,7 +299,7 @@
   (POST "/files/:file-id/:event-id" {:keys [web params]} (call session-create params web))
   (GET "/files/:file-id/:event-id" req (session-get-workbook req))
   (DELETE "/files/:file-id/:event-id" {:keys [web params]} (call session-finalize params web))
-  (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
+  (GET "/files/:file-id/:event-id/event-log" {:keys [web params]} (call session-get-event-log params web))
   (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
   (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))
   (GET "/files/:file-id/:event-id/settlements" req (session-get-settlements req))

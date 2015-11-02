@@ -190,16 +190,18 @@
     (load-test-file! system)
     (let [{:keys [storage session-storage]} system
           session-id (str (UUID/randomUUID))]
-     (is (= (resp->status+body error-404-fnf)
+     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                              session-id))]
             (-> (make-url "/files" test-file-id session-id "event-log")
-                http/get deref resp->status+body))
-         "Session does not exist")
+                http/get deref resp->status+json))
+         "should fail if session not exists")
      (session/create! session-storage storage test-file-id session-id)
-     (is (= [200 {"data" [] "status" 200}]
+     (is (= [200 {:data [] :status 200}]
             (-> (make-url "/files" test-file-id session-id "event-log")
                 (http/get)
                 (deref)
-                (resp->status+json)))))))
+                (resp->status+json)))
+         "should return empty data"))))
 
 (deftest session-append-event-test
   (with-started-system [system]
