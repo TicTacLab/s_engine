@@ -176,7 +176,9 @@
             (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
-              (success-response 201)))))(defn file-replace
+              (success-response 201)))))
+
+(defn file-replace
   [{params :params
     {:keys [storage]} :web}]
   (let [file-id (try-string->json (:file-id params))]
@@ -187,6 +189,15 @@
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
               (success-response 204)))))
+
+(defn file-download
+  [{:keys [params web]}]
+  (let [{:keys [storage]} web
+        file-id (try-string->json (:file-id params))]
+    (resp-> (check-file-id file-id)
+            (check-file-exists storage file-id)
+            (let [{:keys [file file-name]} (file/get-one storage file-id)]
+              (file-response file file-name)))))
 
 (defn file-delete
   [{params             :params
@@ -268,6 +279,8 @@
            (GET "/files" req (files-list req))
            (POST "/files/:file-id/upload" req (file-upload req))
            (POST "/files/:file-id" req (file-replace req))
+           (GET "/files/:file-id" req (file-download req))
+
            (DELETE "/files/:file-id" req (file-delete req))
 
            (POST "/files/:file-id/:event-id" req (session-create req))
