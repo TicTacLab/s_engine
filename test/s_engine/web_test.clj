@@ -4,6 +4,7 @@
             [org.httpkit.client :as http]
             [cheshire.core :as json]
             [s-engine.web :refer :all]
+            [s-engine.web.handlers :as hd]
             [s-engine.config :as c]
             [s-engine.session :as session]
             [s-engine.storage.file :as file]
@@ -27,14 +28,6 @@
 ;; Utils test
 ;;
 
-(deftest resp->test
-  (is (= nil (resp-> nil)))
-  (is (= :3 (resp-> 1 "2" :3)))
-  (is (= {:status 200}
-         (resp-> {:status 200} nil {:status 300})))
-  (is (= {:status 200}
-         (resp-> :1 {:status 200} {:status 300}))))
-
 #_(deftest check-valid-events-test
   (is (not (nil? (check-valid-events ""))))
   (is (not (nil? (check-valid-events []))))
@@ -54,8 +47,8 @@
 
 (deftest resource-not-found-test
   (with-started-system [system]
-    (is (= (resp->status+body error-404-rnf)
-          (-> (make-url "/invalid-url") http/get deref resp->status+body))
+    (is (= 404
+          (-> (make-url "/invalid-url") http/get deref :status))
        "Should return 404")))
 
 (def ^:const invalid-file "test/resources/AutoCalc_Soccer_EventLog.invalid.xlsx")
@@ -65,19 +58,19 @@
     (load-test-file! system)
     (let [{:keys [storage]} system]
       (file/delete! storage test-file-id)
-      (is (= [400 (new-error 400 "MFP" "Invalid file id")]
+      (is (= [400 (hd/new-error 400 "MFP" "Invalid file id")]
              (-> (make-url "/files/sdsfdd/upload")
                  (http/post {:multipart []})
                  (deref)
                  (resp->status+json)))
           "should check file-id")
-      (is (= [400 (new-error 400 "MFP" "No file sent")]
+      (is (= [400 (hd/new-error 400 "MFP" "No file sent")]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart []})
                  (deref)
                  (resp->status+json)))
           "shoudl check file for existance")
-      (is (= [400 (new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
+      (is (= [400 (hd/new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
                                           :content  (io/file invalid-file)
@@ -85,7 +78,7 @@
                  (deref)
                  (resp->status+json)))
           "should check file EventLog header")
-      (is (= [400 (new-error 400 "MFP" "Invalid file type")]
+      (is (= [400 (hd/new-error 400 "MFP" "Invalid file type")]
              (-> (make-url "/files" test-file-id "upload")
                  (http/post {:multipart [{:name     "file"
                                           :content  (io/file *file*)
@@ -107,7 +100,7 @@
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
+     (is (= [404 (hd/new-error 404 "FNF" (format "File with id '%s' not found"
                                               Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
                 (http/post {:multipart [{:name     "file"
@@ -116,13 +109,13 @@
                 (deref)
                 (resp->status+json)))
          "should validate file for existance in db")
-     (is (= [400 (new-error 400 "MFP" "No file sent")]
+     (is (= [400 (hd/new-error 400 "MFP" "No file sent")]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart []})
                 (deref)
                 (resp->status+json)))
          "should validate file existance in params")
-     (is (= [400 (new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
+     (is (= [400 (hd/new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
                                          :content  (io/file invalid-file)
@@ -145,7 +138,7 @@
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
+     (is (= [404 (hd/new-error 404 "FNF" (format "File with id '%s' not found"
                                               Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
                 http/delete deref resp->status+json))
@@ -165,14 +158,14 @@
           session-id (str (UUID/randomUUID))]
      (session/create! session-storage storage test-file-id session-id)
 
-     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
+     (is (= [404 (hd/new-error 404 "FNF" (format "File with id '%s' not found"
                                               Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE "1")
                 http/post deref resp->status+json))
          "should check file before session creating")
      (is (false? (session/exists? session-storage "1")))
 
-     (is (= [400 (new-error 400 "MFP" (format "Session with id '%s' is already created"
+     (is (= [400 (hd/new-error 400 "MFP" (format "Session with id '%s' is already created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id)
                 http/post deref resp->status+json))
@@ -190,7 +183,7 @@
     (load-test-file! system)
     (let [{:keys [storage session-storage]} system
           session-id (str (UUID/randomUUID))]
-     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+     (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id "event-log")
                 http/get deref resp->status+json))
@@ -216,7 +209,7 @@
                   "BodyPart"   "Head"
                   "Accidental" "OwnGoal"}]
           session-id (str (UUID/randomUUID))]
-     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+     (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id "event-log/append")
                 http/post deref resp->status+json))
@@ -269,7 +262,7 @@
                  "BodyPart"   "Head"
                  "Accidental" "OwnGoal"}
           session-id (str (UUID/randomUUID))]
-     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+     (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id "event-log/set")
                 http/post deref resp->status+json))
@@ -308,7 +301,7 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           session-id (str (UUID/randomUUID))]
-     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+     (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id "settlements")
                 http/get deref resp->status+json))
@@ -334,7 +327,7 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           session-id (str (UUID/randomUUID))]
-      (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+      (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                                session-id))]
              (-> (make-url "/files" test-file-id session-id)
                  (http/get)
@@ -358,7 +351,7 @@
     (load-test-file! system)
     (let [{:keys [storage session-storage]} system
           session-id (str (UUID/randomUUID))]
-     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+     (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                               session-id))]
             (-> (make-url "/files" test-file-id session-id)
                 http/delete deref resp->status+json))
@@ -366,7 +359,7 @@
 
      (session/create! session-storage storage test-file-id session-id)
 
-     (is (= [404 (new-error 404 "SNF" "Session with id '1' is not created")]
+     (is (= [404 (hd/new-error 404 "SNF" "Session with id '1' is not created")]
             (-> (make-url "/files" test-file-id "1")
                 (http/delete) (deref)
                 (resp->status+json)))
