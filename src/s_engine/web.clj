@@ -99,15 +99,16 @@
       (h p w)
       (error-response 400 "MFP" "Invalid event id"))))
 
-(defn- check-file-id [file-id]
-  (when (not (integer? file-id))
-    (log/info "Invalid file id" file-id)
-    error-400-mfp))
-
-(defn- check-session-exists [session-storage s-id]
+(defn- check-session-exists-leg [session-storage s-id]
   (when-not (session/exists? session-storage s-id)
     (log/info "Session with id not found" s-id)
     error-404-fnf))
+
+(defn check-session-exists [h]
+  (fn [{event-id :event-id :as p} {session-storage :session-storage :as w}]
+    (if (session/exists? session-storage event-id)
+      (h p w)
+      (error-response 404 "SNF" (format "Session with id '%s' is not created" event-id)))))
 
 (defn check-session-not-exists [h]
   (fn [{event-id :event-id :as p} {session-storage :session-storage :as w}]
@@ -159,6 +160,12 @@
   (fn [{:keys [file-id event-id]} {:keys [session-storage storage]}]
     (session/create! session-storage storage file-id event-id)
     (success-response 201)))
+
+(defn finalize-session! [h]
+  (fn [{:keys [event-id]} {:keys [session-storage storage]}]
+    (let [session (session/get-one session-storage event-id)]
+      (session/finalize! session-storage storage session)
+      (success-response 204))))
 
 (defn string->int [s]
   (try
@@ -225,29 +232,14 @@
         check-file-exists
         create-session!))
 
-#_(defn session-create
-  [{{:keys [event-id] :as params}     :params
-    {:keys [session-storage storage]} :web}]
-  (let [file-id (try-string->json (:file-id params))]
-    (resp-> (check-event-id event-id)
-            (check-session-not-exists session-storage event-id)
-            (check-file-id file-id)
-            ((check-file-exists identity) storage file-id)
-            (do
-              ))))
-
-(defn session-finalize
-  [{{:keys [event-id]}                :params
-    {:keys [session-storage storage]} :web}]
-  (resp-> (check-session-exists session-storage event-id)
-          (let [session (session/get-one session-storage event-id)]
-            (session/finalize! session-storage storage session)
-            (success-response 204))))
+(def session-finalize
+  (comp check-session-exists
+        finalize-session!))
 
 (defn session-get-event-log
   [{{:keys [event-id]}        :params
     {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists session-storage event-id)
+  (resp-> (check-session-exists-leg session-storage event-id)
           (->> (session/get-one session-storage event-id)
                (session/get-events)
                (success-response 200))))
@@ -257,7 +249,7 @@
     {:keys [session-storage storage]} :web :as r}]
   (let [event-str (req/body-string r)
         event (try-string->json event-str)]
-    (resp-> (check-session-exists session-storage event-id)
+    (resp-> (check-session-exists-leg session-storage event-id)
             (check-valid-events [event])
             (let [session (session/get-one session-storage event-id)]
               (session/append-event! storage session event)
@@ -268,7 +260,7 @@
     {:keys [session-storage storage]} :web :as r}]
   (let [events-str (req/body-string r)
         events (try-string->json events-str)]
-    (resp-> (check-session-exists session-storage event-id)
+    (resp-> (check-session-exists-leg session-storage event-id)
             (check-valid-events events)
             (let [session (session/get-one session-storage event-id)]
               (session/set-events! storage session events)
@@ -277,7 +269,7 @@
 (defn session-get-settlements
   [{{:keys [event-id]}        :params
     {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists session-storage event-id)
+  (resp-> (check-session-exists-leg session-storage event-id)
           (->> (session/get-one session-storage event-id)
                (session/get-out)
                (success-response 200))))
@@ -285,7 +277,7 @@
 (defn session-get-workbook
   [{{:keys [event-id]} :params
     {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists session-storage event-id)
+  (resp-> (check-session-exists-leg session-storage event-id)
           (let [session (session/get-one session-storage event-id)
                 {:keys [file-name bytes]} (session/get-workbook session)]
             (file-response bytes file-name))))
@@ -297,7 +289,7 @@
 
   (POST "/files/:file-id/:event-id" {:keys [web params]} (call session-create params web))
   (GET "/files/:file-id/:event-id" req (session-get-workbook req))
-  (DELETE "/files/:file-id/:event-id" req (session-finalize req))
+  (DELETE "/files/:file-id/:event-id" {:keys [web params]} (call session-finalize params web))
   (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))
   (POST "/files/:file-id/:event-id/event-log/append" req (session-append-event req))
   (POST "/files/:file-id/:event-id/event-log/set" req (session-set-event-log req))

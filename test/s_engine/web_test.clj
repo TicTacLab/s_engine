@@ -345,20 +345,22 @@
 (deftest session-finalize-test
   (with-started-system [system]
     (load-test-file! system)
-    (let [{:keys [storage session-storage]} system]
-     (is (= (resp->status+body error-404-fnf)
-            (-> (make-url "/files" test-file-id "1")
-                http/delete deref resp->status+body))
+    (let [{:keys [storage session-storage]} system
+          session-id (str (UUID/randomUUID))]
+     (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                              session-id))]
+            (-> (make-url "/files" test-file-id session-id)
+                http/delete deref resp->status+json))
          "Session does not exist")
-     (session/create! session-storage storage test-file-id "1")
-     (is (= [404 {"errors" [{"code"    "FNF"
-                             "message" "File not found"}]
-                  "status" 404}]
-            (-> (make-url "/files" test-file-id 2)
+
+     (session/create! session-storage storage test-file-id session-id)
+
+     (is (= [404 (new-error 404 "SNF" "Session with id '1' is not created")]
+            (-> (make-url "/files" test-file-id "1")
                 (http/delete) (deref)
                 (resp->status+json)))
          "should delete non-existing session")
      (is (= [204 nil]
-            (-> (make-url "/files" test-file-id 1)
+            (-> (make-url "/files" test-file-id session-id)
                 (http/delete) (deref)
                 (resp->status+json)))))))
