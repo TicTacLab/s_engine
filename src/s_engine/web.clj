@@ -65,14 +65,6 @@
 (def error-423-cip (error-response 423 "CIP" "Calculation is in progress"))
 (def error-500-ise (error-response 500 "ISE" "Internal server error"))
 
-#_(defn parse-form-param [h]
-  (fn [form request]
-    (try
-      (let [params (fp/parse-request form request)]
-        (h params))
-      (catch ExceptionInfo e
-        {:status 500}))))
-
 (defn try-string->json [value]
   (try
     (json/parse-string value false)
@@ -101,10 +93,11 @@
            ~@(interleave (repeat g) (map pstep forms))]
        ~g)))
 
-(defn- check-event-id [e-id]
-  (when (empty? e-id)
-    (log/info "Invalid event id" e-id)
-    error-400-mfp))
+(defn check-event-id [h]
+  (fn [{event-id :event-id :as p} w]
+    (if (seq event-id)
+      (h p w)
+      (error-response 400 "MFP" "Invalid event id"))))
 
 (defn- check-file-id [file-id]
   (when (not (integer? file-id))
@@ -116,16 +109,17 @@
     (log/info "Session with id not found" s-id)
     error-404-fnf))
 
-(defn check-session-not-exists [session-storage s-id]
-  (when (session/exists? session-storage s-id)
-    (log/info "Session with id already created" s-id)
-    error-400-mfp))
+(defn check-session-not-exists [h]
+  (fn [{event-id :event-id :as p} {session-storage :session-storage :as w}]
+    (if-not (session/exists? session-storage event-id)
+      (h p w)
+      (error-response 400 "MFP" (format "Session with id '%s' is already created" event-id)))))
 
 (defn check-file-exists [h]
   (fn [{file-id :file-id :as p} {storage :storage :as w}]
     (if (file/exists? storage file-id)
       (h p w)
-      (error-response 404 "FNF" (format "File with id \"%s\" not found" file-id)))))
+      (error-response 404 "FNF" (format "File with id '%s' not found" file-id)))))
 
 (def ^:const event-schema
   {(s/required-key "EventType") s/Str
@@ -160,6 +154,11 @@
   (fn [{file-id :file-id} {storage :storage}]
     (file/delete! storage file-id)
     (success-response 200)))
+
+(defn create-session! [h]
+  (fn [{:keys [file-id event-id]} {:keys [session-storage storage]}]
+    (session/create! session-storage storage file-id event-id)
+    (success-response 201)))
 
 (defn string->int [s]
   (try
@@ -219,7 +218,14 @@
         check-file-exists
         delete-file!))
 
-(defn session-create
+(def session-create
+  (comp check-event-id
+        check-session-not-exists
+        parse-file-id
+        check-file-exists
+        create-session!))
+
+#_(defn session-create
   [{{:keys [event-id] :as params}     :params
     {:keys [session-storage storage]} :web}]
   (let [file-id (try-string->json (:file-id params))]
@@ -228,8 +234,7 @@
             (check-file-id file-id)
             ((check-file-exists identity) storage file-id)
             (do
-              (session/create! session-storage storage file-id event-id)
-              (success-response 201)))))
+              ))))
 
 (defn session-finalize
   [{{:keys [event-id]}                :params
@@ -290,7 +295,7 @@
   (POST "/files/:file-id" {:keys [web params]} (call file-replace params web))
   (DELETE "/files/:file-id" {:keys [web params]} (call file-delete params web))
 
-  (POST "/files/:file-id/:event-id" req (session-create req))
+  (POST "/files/:file-id/:event-id" {:keys [web params]} (call session-create params web))
   (GET "/files/:file-id/:event-id" req (session-get-workbook req))
   (DELETE "/files/:file-id/:event-id" req (session-finalize req))
   (GET "/files/:file-id/:event-id/event-log" req (session-get-event-log req))

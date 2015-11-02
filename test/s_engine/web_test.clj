@@ -107,7 +107,7 @@
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= [404 (new-error 404 "FNF" (format "File with id \"%s\" not found"
+     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
                                               Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
                 (http/post {:multipart [{:name     "file"
@@ -129,7 +129,7 @@
                                          :filename "test-model.xlsx"}]})
                 (deref)
                 (resp->status+json)))
-         "File has errors")
+         "should validate file before replace")
      (is (= [200 ""]
             (-> (make-url "/files" test-file-id)
                 (http/post {:multipart [{:name     "file"
@@ -139,36 +139,46 @@
                 (resp->status+body))))
      (is (= "new-model.xlsx"
             (:file-name (file/get-one storage test-file-id)))
-         "Replaced file succesfully"))))
+         "should replace file successfully"))))
 
 (deftest file-delete-test
   (with-started-system [system]
     (load-test-file! system)
     (let [{:keys [storage]} system]
-     (is (= [404 (new-error 404 "FNF" (format "File with id \"%s\" not found"
+     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
                                               Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE)
-                http/delete deref resp->status+json)))
+                http/delete deref resp->status+json))
+         "should check file existance before delete")
+
      (is (= [200 ""]
             (-> (make-url "/files" test-file-id)
-                http/delete deref resp->status+body)))
-     (is (false? (file/exists? storage test-file-id))))))
+                http/delete deref resp->status+body))
+         "should successfully delete file")
+     (is (false? (file/exists? storage test-file-id))
+         "should really delete it"))))
 
 (deftest session-create-test
   (with-started-system [system]
     (load-test-file! system)
-    (let [{:keys [session-storage storage]} system]
-     (session/create! session-storage storage test-file-id "2")
-     (is (= (resp->status+body error-404-fnf)
+    (let [{:keys [session-storage storage]} system
+          session-id (str (UUID/randomUUID))]
+     (session/create! session-storage storage test-file-id session-id)
+
+     (is (= [404 (new-error 404 "FNF" (format "File with id '%s' not found"
+                                              Integer/MAX_VALUE))]
             (-> (make-url "/files" Integer/MAX_VALUE "1")
-                http/post deref resp->status+body))
-         "File not found")
+                http/post deref resp->status+json))
+         "should check file before session creating")
      (is (false? (session/exists? session-storage "1")))
-     (is (= (resp->status+body error-400-mfp)
-            (-> (make-url "/files" test-file-id "2")
-                http/post deref resp->status+body))
-         "Session already exists")
+
+     (is (= [400 (new-error 400 "MFP" (format "Session with id '%s' is already created"
+                                              session-id))]
+            (-> (make-url "/files" test-file-id session-id)
+                http/post deref resp->status+json))
+         "should fail if session already exists")
      (is (false? (session/exists? session-storage "1")))
+
      (is (= [201 ""]
             (-> (make-url "/files" test-file-id "1")
                 http/post deref resp->status+body))
