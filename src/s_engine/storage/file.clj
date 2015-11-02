@@ -2,7 +2,8 @@
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes)
-           (java.io ByteArrayOutputStream OutputStream))
+           (java.io ByteArrayOutputStream OutputStream)
+           (java.util Date))
   (:require [clojure.set :as set]
             [malcolmx.core :as mx]
             [clojurewerkz.cassaforte.cql :as cql]
@@ -23,12 +24,14 @@
 
 (def ^:private table-name "sengine_files")
 
-(defrecord File [id file file-name])
+(defrecord File [id file file-name last-modified])
 
 (defn- row->file [row]
   (->File (:id row)
-           (Bytes/getArray (:raw_file row))
-           (:file_name row)))
+          (when (:raw_file row)
+            (Bytes/getArray (:raw_file row)))
+          (:file_name row)
+          (:last_modified row)))
 
 (defn exists?
   [storage file-id]
@@ -41,7 +44,10 @@
 (defn write!
   [storage file-id file-bytes filename]
   (let [{:keys [conn]} storage
-        file {:id file-id, :file_name filename, :raw_file file-bytes}]
+        file {:id            file-id,
+              :file_name     filename
+              :raw_file      file-bytes
+              :last_modified (Date.)}]
     (cql/insert conn table-name file)))
 
 (defn delete!
@@ -59,6 +65,13 @@
                                (where [[= :id file-id]])))]
     (when row
       (row->file row))))
+
+(defn get-all
+  [storage]
+  (let [{:keys [conn]} storage]
+    (->> (cql/select conn table-name
+                     (columns :id :file_name :last_modified))
+         (map row->file))))
 
 (defn read-bytes [^File file]
   (Files/readAllBytes (Paths/get (.toURI file))))

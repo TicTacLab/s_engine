@@ -159,6 +159,11 @@
 ;; Routes
 ;;
 
+(defn files-list
+  [{{:keys [storage]} :web}]
+  (->> (file/get-all storage)
+       (success-response 200)))
+
 (defn- write-file! [storage file-id file file-name]
   (let [file-bytes (file/read-bytes file)]
     (file/write! storage file-id file-bytes file-name)))
@@ -171,9 +176,7 @@
             (check-valid-file (-> params :file :tempfile))
             (let [{:keys [filename tempfile]} (:file params)]
               (write-file! storage file-id tempfile filename)
-              (success-response 201)))))
-
-(defn file-replace
+              (success-response 201)))))(defn file-replace
   [{params :params
     {:keys [storage]} :web}]
   (let [file-id (try-string->json (:file-id params))]
@@ -262,6 +265,7 @@
             (file-response bytes file-name))))
 
 (defroutes routes
+           (GET "/files" req (files-list req))
            (POST "/files/:file-id/upload" req (file-upload req))
            (POST "/files/:file-id" req (file-replace req))
            (DELETE "/files/:file-id" req (file-delete req))
