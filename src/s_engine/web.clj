@@ -11,12 +11,19 @@
              [multipart-params :refer (wrap-multipart-params)]]
             [ring.util.request :as req]
             [ring.adapter.jetty :as jetty]
-            [s-engine.storage.file :as file])
+            [s-engine.storage.file :as file]
+            [s-engine.session :as session]
+            [s-engine.session :as session])
   (:import (org.eclipse.jetty.server Server)))
 
 (defn files-list
   [{{:keys [storage]} :web}]
   (->> (file/get-all storage)
+       (hd/success-response 200)))
+
+(defn events-list
+  [{{:keys [session-storage]} :web}]
+  (->> (session/get-all-ids session-storage)
        (hd/success-response 200)))
 
 (def file-download
@@ -122,6 +129,9 @@
 
   (GET "/files/:file-id/:event-id/settlements" {:keys [web params]}
     (hd/call session-get-settlements params web))
+
+  (GET "/events" req
+    (events-list req))
 
   (ANY "/*" _ (hd/error-response 404 "RNF" "Resource not found")))
 

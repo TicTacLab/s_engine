@@ -11,10 +11,10 @@
   [session-storage session-id]
   (get @(:session-table session-storage) session-id nil))
 
-(defn get-all
+(defn get-all-ids
   "Returns all sessions"
   [session-storage]
-  (vals @(:session-table session-storage)))
+  (keys @(:session-table session-storage)))
 
 (defn exists?
   [session-storage session-id]
