@@ -276,7 +276,7 @@
          "Session does not exist")
 
      (let [session (session/create! session-storage storage test-file-id session-id)]
-       (session/append-event! storage session event1)
+       (session/append-events! storage session [event1])
        (is (= [200 {"status" 200
                     "data"   [{"Market name" "MATCH_BETTING"
                                "Outcome"     "HOME"
@@ -334,12 +334,14 @@
     (load-test-file! system)
     (let [{:keys [session-storage storage]} system
           session-id (str (UUID/randomUUID))]
-      (is (= (resp->status+json error-404-fnf)
+      (is (= [404 (new-error 404 "SNF" (format "Session with id '%s' is not created"
+                                               session-id))]
              (-> (make-url "/files" test-file-id session-id)
                  (http/get)
                  (deref)
                  (resp->status+json)))
           "Session does not exist")
+
       (session/create! session-storage storage test-file-id session-id)
       (let [resp (-> (make-url "/files" test-file-id session-id)
                      (http/get)

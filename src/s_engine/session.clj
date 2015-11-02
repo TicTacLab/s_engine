@@ -24,7 +24,7 @@
   [session event]
   (file/valid-event? (:file-wb session) event))
 
-(defn append-event!
+(defn append-events!
   "Add event to session's event log"
   [storage session events]
   (let [{:keys [file-wb]} session]

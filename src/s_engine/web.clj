@@ -167,7 +167,7 @@
 (defn append-events! [h]
   (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (session/append-event! storage session events)
+      (session/append-events! storage session events)
       (success-response 200 (session/get-out session)))))
 
 (defn set-events! [h]
@@ -181,6 +181,12 @@
     (->> (session/get-one session-storage event-id)
          (session/get-out)
          (success-response 200))))
+
+(defn get-workbook [h]
+  (fn [{:keys [event-id]} {:keys [session-storage]}]
+    (let [session (session/get-one session-storage event-id)
+          {:keys [file-name bytes]} (session/get-workbook session)]
+      (file-response bytes file-name))))
 
 (defn string->int [s]
   (try
@@ -293,13 +299,10 @@
         check-session-exists
         get-settlements))
 
-(defn session-get-workbook
-  [{{:keys [event-id]} :params
-    {:keys [session-storage]} :web}]
-  (resp-> (check-session-exists-leg session-storage event-id)
-          (let [session (session/get-one session-storage event-id)
-                {:keys [file-name bytes]} (session/get-workbook session)]
-            (file-response bytes file-name))))
+(def session-get-workbook
+  (comp check-event-id
+        check-session-exists
+        get-workbook))
 
 (defroutes routes
   (POST "/files/:file-id/upload" {:keys [web params]}
@@ -314,8 +317,8 @@
   (POST "/files/:file-id/:event-id" {:keys [web params]}
     (call session-create params web))
 
-  (GET "/files/:file-id/:event-id" req
-    (session-get-workbook req))
+  (GET "/files/:file-id/:event-id" {:keys [web params]}
+    (call session-get-workbook params web))
 
   (DELETE "/files/:file-id/:event-id" {:keys [web params]}
     (call session-finalize params web))

@@ -60,7 +60,7 @@
                  "BodyPart"   "Leg"
                  "Accidental" "OwnGoal"
                  "Action"     ""}]
-      (append-event! storage session event)
+      (append-events! storage session [event])
       (is (= [event]
              (get-events session)))
       (is (= [event]
@@ -88,9 +88,9 @@
                   "Action"     ""}]
       (do
         (is (empty? (get-events session)))
-        (append-event! storage session event1)
+        (append-events! storage session [event1])
         (is (= [event1] (get-events session)))
-        (append-event! storage session event2)
+        (append-events! storage session [event2])
         (is (= [event1 event2] (get-events session)))))))
 
 (deftest set-events!-test
@@ -113,7 +113,7 @@
                   "Action"     ""}
           session-id (>trace (str (UUID/randomUUID)))
           session (create! session-storage storage test-file-id session-id)]
-      (append-event! storage session event1)
+      (append-events! storage session [event1])
       (set-events! storage session [event2])
       (is (= [event2]
              (get-events session)))
@@ -152,7 +152,7 @@
                  "BodyPart"   "Head"
                  "Accidental" "OwnGoal"
                  "Action"     ""}]
-      (append-event! storage session event)
+      (append-events! storage session [event])
       (finalize! session-storage storage session)
       (is (nil? (get-one session-storage session-id)))
       (is (= (ev/fetch storage session-id))))))
