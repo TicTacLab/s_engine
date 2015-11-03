@@ -101,13 +101,13 @@
 (defn create-session! [h]
   (fn [{:keys [file-id event-id]} {:keys [session-storage storage]}]
     (session/create! session-storage storage file-id event-id)
-    (success-response 201)))
+    (success-response 200)))
 
 (defn finalize-session! [h]
   (fn [{:keys [event-id]} {:keys [session-storage storage]}]
     (let [session (session/get-one session-storage event-id)]
       (session/finalize! session-storage storage session)
-      (success-response 204))))
+      (success-response 200))))
 
 (defn get-event-log [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
