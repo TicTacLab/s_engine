@@ -2,8 +2,7 @@
   (:require [clojure.test :refer :all]
             [s-engine.session :refer :all]
             [s-engine.test-helper :refer :all]
-            [s-engine.storage.event-log :as ev])
-  (:import (java.util UUID)))
+            [s-engine.storage.event-log :as ev]))
 
 ;;
 ;; Tests
@@ -11,9 +10,9 @@
 
 (deftest create-test-without-logs
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)]
       (is (= session
              (get @(:session-table session-storage) session-id)))
@@ -21,7 +20,7 @@
 
 (deftest create-test-with-logs
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
           event {"EventType"  "Test"
                  "Team"       ""
@@ -30,7 +29,7 @@
                  "Standart"   ""
                  "Accidental" ""
                  "Action"     ""}
-          session-id (str (UUID/randomUUID))]
+          session-id (gen-session-id)]
       (ev/refresh! storage session-id [event])
       (let [session (create! session-storage storage test-file-id session-id)]
         (is (= session
@@ -40,18 +39,18 @@
 
 (deftest get-one-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)]
       (is (= session
              (get-one session-storage session-id))))))
 
 (deftest append-event-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)
           event {"EventType"  "Goal"
                  "Team"       "Team1"
@@ -68,9 +67,9 @@
 
 (deftest get-events-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)
           event1 {"EventType"  "Goal"
                   "Team"       "Team1"
@@ -95,7 +94,7 @@
 
 (deftest set-events!-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
           event1 {"EventType"  "Goal"
                   "Team"       "Team1"
@@ -111,7 +110,7 @@
                   "BodyPart"   "Head"
                   "Accidental" "OwnGoal"
                   "Action"     ""}
-          session-id (>trace (str (UUID/randomUUID)))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)]
       (append-events! storage session [event1])
       (set-events! storage session [event2])
@@ -122,9 +121,9 @@
 
 (deftest get-out-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)]
       (is (= [{"Market name" "MATCH_BETTING"
                "Outcome"     "HOME"
@@ -139,9 +138,9 @@
 
 (deftest finalize-test
   (with-started-system [system]
-    (load-test-file! system)
+    (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          session-id (str (UUID/randomUUID))
+          session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)
           event {"EventType"  "Goal"
                  "min"        0.

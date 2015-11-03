@@ -21,9 +21,8 @@
    (success-response status nil))
   ([status json-body]
    (-> {:status status
-        :body   (when json-body
-                  (json/generate-string {:status status
-                                         :data   json-body}))}
+        :body (json/generate-string {:status status
+                                       :data   json-body})}
        (res/content-type "application/json")
        (res/charset "utf-8"))))
 
