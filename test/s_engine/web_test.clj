@@ -259,7 +259,7 @@
                                {"Market name" "MATCH_BETTING"
                                 "Outcome"     "AWAY"
                                 "Calc"        "lose"}]}]
-               (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid) events)
+               (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid) {:params events})
                    (resp->status+json :keywordize false)))
             "should successfully append log")
 
@@ -322,7 +322,7 @@
                                {"Market name" "MATCH_BETTING"
                                 "Outcome"     "AWAY"
                                 "Calc"        "win"}]}]
-               (-> (json-req! :post (urlf "/events/%s/event-log/set" ssid) [event2])
+               (-> (json-req! :post (urlf "/events/%s/event-log/set" ssid) {:params [event2]})
                    (resp->status+json :keywordize false))))
         (is (= [200 {"status" 200
                      "data"   [{"EventType"  "Goal"

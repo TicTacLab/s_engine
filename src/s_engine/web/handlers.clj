@@ -184,7 +184,7 @@
 
 (defn parse-events [h]
   (fn [{events-str :events :as p} w]
-    (if-let [events (json->clj events-str)]
+    (if-let [events (get (json->clj events-str) "params")]
       (h (assoc p :events events) w)
       (error-response 400 "MFP" "Malformed json body"))))
 
