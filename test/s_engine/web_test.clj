@@ -265,7 +265,6 @@
 
         (is (= [200 {"status" 200
                      "data"   [{"Accidental" "OwnGoal"
-                                "Action"     ""
                                 "BodyPart"   "Head"
                                 "EventType"  "Goal"
                                 "GamePart"   "Half1"
@@ -290,16 +289,12 @@
     (testing "normal event log set"
       (let [ssid (gen-session-id)
             event1 {"EventType"  "Goal"
-                    "min"        0
-                    "sec"        0
                     "Team"       "Team1"
                     "GamePart"   "Half1"
                     "Standart"   "Corner"
                     "BodyPart"   "Head"
                     "Accidental" "OwnGoal"}
             event2 {"EventType"  "Goal"
-                    "min"        1
-                    "sec"        1
                     "Team"       "Team2"
                     "GamePart"   "Half1"
                     "Standart"   "Corner"
@@ -330,8 +325,7 @@
                                 "GamePart"   "Half1"
                                 "Standart"   "Corner"
                                 "BodyPart"   "Head"
-                                "Accidental" "OwnGoal"
-                                "Action"     ""}]}]
+                                "Accidental" "OwnGoal"}]}]
                (-> (req! :get (urlf "/events/%s/event-log" ssid))
                    (resp->status+json :keywordize false))))))))
 

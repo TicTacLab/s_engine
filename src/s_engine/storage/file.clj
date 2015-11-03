@@ -176,7 +176,11 @@
   [file-wb]
   (->> event-log-sheet
        (mx/get-sheet (:workbook file-wb))
-       (map #(dissoc % ""))))
+       (map #(dissoc % ""))
+       (map (fn [row]
+              (->> row
+                   (remove (comp empty? second))
+                   (into {}))))))
 
 (defn set-event-log!
   "Sets contents of event log sheet to given coll of events"

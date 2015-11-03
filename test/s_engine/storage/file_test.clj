@@ -9,17 +9,10 @@
 (deftest get-event-log-sheet-test
   (let [file-wb (new-file-workbook test-file)
         event {"EventType" "Match"
-               "min"       0
-               "sec"       1
                "Action"    "start"}]
     (clear-event-log! file-wb)
     (append-events! file-wb [event])
     (is (= [{"EventType"  "Match"
-             "Team"       ""
-             "GamePart"   ""
-             "Standart"   ""
-             "BodyPart"   ""
-             "Accidental" ""
              "Action"     "start"}]
            (get-event-log-rows file-wb)))))
 
@@ -127,23 +120,16 @@
     (finalize! file-wb)))
 
 (deftest event->row-data-test
-  (let [column-order ["min" "sec" "EventType" "Attr1" "Action" "Attr2"]
+  (let [column-order ["EventType" "Attr1" "Action" "Attr2"]
         event {"EventType" "Match"
-               "min"       0
-               "sec"       1
                "Action"    "start"}]
-    (is (= [0 1 "Match" "" "start" ""]
+    (is (= ["Match" "" "start" ""]
            (event->row-data column-order event)))))
 
 (deftest append-events!-test
   (testing "Consecutive appends"
     (let [file-wb (new-file-workbook test-file)
           event {"EventType"  "Match"
-                 "Team"       ""
-                 "GamePart"   ""
-                 "Standart"   ""
-                 "BodyPart"   ""
-                 "Accidental" ""
                  "Action"     "start"}]
       (append-events! file-wb [event])
       (append-events! file-wb [event])
@@ -158,18 +144,8 @@
   (testing "Not empty"
     (let [file-wb (new-file-workbook test-file)
           event1 {"EventType"  "Match"
-                  "Team"       ""
-                  "GamePart"   ""
-                  "Standart"   ""
-                  "BodyPart"   ""
-                  "Accidental" ""
                   "Action"     "start"}
           event2 {"EventType"  "Match"
-                  "Team"       ""
-                  "GamePart"   ""
-                  "Standart"   ""
-                  "BodyPart"   ""
-                  "Accidental" ""
                   "Action"     "end"}]
       (append-events! file-wb [event1 event2])
       (is (= [event1 event2]
@@ -178,18 +154,8 @@
 (deftest set-event-log-sheet!-test
   (let [file-wb (new-file-workbook test-file)
         event1 {"EventType"  "Match"
-                "Team"       ""
-                "GamePart"   ""
-                "Standart"   ""
-                "BodyPart"   ""
-                "Accidental" ""
                 "Action"     "start"}
         event2 {"EventType"  "Match"
-                "Team"       ""
-                "GamePart"   ""
-                "Standart"   ""
-                "BodyPart"   ""
-                "Accidental" ""
                 "Action"     "start"}]
     (append-events! file-wb [event1])
     (set-event-log! file-wb [event2])

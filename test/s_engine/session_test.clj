@@ -22,13 +22,7 @@
   (with-started-system [system]
     (load-test-file!)
     (let [{:keys [session-storage storage]} system
-          event {"EventType"  "Test"
-                 "Team"       ""
-                 "BodyPart"   ""
-                 "GamePart"   ""
-                 "Standart"   ""
-                 "Accidental" ""
-                 "Action"     ""}
+          event {"EventType"  "Test"}
           session-id (gen-session-id)]
       (ev/refresh! storage session-id [event])
       (let [session (create! session-storage storage test-file-id session-id)]
@@ -57,8 +51,7 @@
                  "GamePart"   "Half1"
                  "Standart"   "Corner"
                  "BodyPart"   "Leg"
-                 "Accidental" "OwnGoal"
-                 "Action"     ""}]
+                 "Accidental" "OwnGoal"}]
       (append-events! storage session [event])
       (is (= [event]
              (get-events session)))
@@ -76,15 +69,13 @@
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
                   "BodyPart"   "Leg"
-                  "Accidental" "OwnGoal"
-                  "Action"     ""}
+                  "Accidental" "OwnGoal"}
           event2 {"EventType"  "Goal"
                   "Team"       "Team2"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
                   "BodyPart"   "Leg"
-                  "Accidental" "OwnGoal"
-                  "Action"     ""}]
+                  "Accidental" "OwnGoal"}]
       (do
         (is (empty? (get-events session)))
         (append-events! storage session [event1])
@@ -101,15 +92,13 @@
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
                   "BodyPart"   "Head"
-                  "Accidental" "OwnGoal"
-                  "Action"     ""}
+                  "Accidental" "OwnGoal"}
           event2 {"EventType"  "Goal"
                   "Team"       "Team2"
                   "GamePart"   "Half1"
                   "Standart"   "Corner"
                   "BodyPart"   "Head"
-                  "Accidental" "OwnGoal"
-                  "Action"     ""}
+                  "Accidental" "OwnGoal"}
           session-id (gen-session-id)
           session (create! session-storage storage test-file-id session-id)]
       (append-events! storage session [event1])
