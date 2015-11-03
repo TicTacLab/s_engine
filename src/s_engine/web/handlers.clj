@@ -72,13 +72,13 @@
   (fn [{event-id :event-id :as p} {session-storage :session-storage :as w}]
     (if (session/exists? session-storage event-id)
       (h p w)
-      (error-response 404 "SNF" (format "Session with id '%s' is not created" event-id)))))
+      (error-response 404 "ENF" (format "Event with id '%s' is not created" event-id)))))
 
 (defn check-session-not-exists [h]
   (fn [{event-id :event-id :as p} {session-storage :session-storage :as w}]
     (if-not (session/exists? session-storage event-id)
       (h p w)
-      (error-response 400 "MFP" (format "Session with id '%s' is already created" event-id)))))
+      (error-response 400 "EAC" (format "Event with id '%s' is already created" event-id)))))
 
 (defn check-file-exists [h]
   (fn [{file-id :file-id :as p} {storage :storage :as w}]
