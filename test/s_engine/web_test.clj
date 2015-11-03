@@ -116,7 +116,7 @@
                    (resp->status+body))))
 
         (let [file-resp (req! :get (urlf "/files/%s" test-file-id))]
-          (is (= 200 (:status (>trace file-resp))))
+          (is (= 200 (:status file-resp)))
           (is (= "application/octet-stream"
                  (-> file-resp :headers :content-type)))
           (is (= "attachment; filename=new-model.xlsx"
@@ -159,8 +159,9 @@
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "FNF" (format "File with id '%s' not found"
                                                     Integer/MAX_VALUE))]
-               (-> (req! :post (urlf "/files/%s/%s" Integer/MAX_VALUE ssid))
-                   resp->status+json))
+               (->> {:params {:file-id Integer/MAX_VALUE, :event-id ssid}}
+                    (json-req! :post (urlf "/events"))
+                    resp->status+json))
             "should check file before session creating")
 
         (let [sessions (-> (req! :get (urlf "/events"))
@@ -171,8 +172,10 @@
     (testing "normal session creating"
       (let [ssid (gen-session-id)]
         (is (= [200 (empty-body 200)]
-               (-> (req! :post (urlf "/files/%s/%s" test-file-id ssid))
-                   resp->status+body))
+               (->> {:params {:file-id test-file-id
+                              :event-id ssid}}
+                    (json-req! :post (urlf "/events"))
+                    resp->status+body))
             "Session created succesfully")
 
         (let [sessions (-> (req! :get (urlf "/events"))
@@ -187,8 +190,10 @@
 
         (is (= [400 (hd/new-error 400 "MFP" (format "Session with id '%s' is already created"
                                                     ssid))]
-               (-> (req! :post (urlf "/files/%s/%s" test-file-id ssid))
-                   resp->status+json))
+               (->> {:params {:file-id test-file-id
+                              :event-id ssid}}
+                    (json-req! :post (urlf "/events"))
+                    resp->status+json))
             "should fail because session already exists")
 
         (let [sessions (-> (req! :get (urlf "/events"))
@@ -205,7 +210,7 @@
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created"
                                                     ssid))]
-               (-> (req! :get (urlf "/files/%s/%s" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s" ssid))
                    resp->status+json))
             "should fail if session not exists"))
 
@@ -215,7 +220,7 @@
           (create-test-session! ssid)
 
           (is (= [200 {:status 200 :data []}]
-                 (-> (req! :get (urlf "/files/%s/%s/event-log" test-file-id ssid))
+                 (-> (req! :get (urlf "/events/%s/event-log" ssid))
                      (resp->status+json)))
               "should return empty data"))))))
 
@@ -227,7 +232,7 @@
     (testing "communicating to not created session"
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created" ssid))]
-               (-> (req! :post (urlf "/files/%s/%s/event-log/append" test-file-id ssid))
+               (-> (req! :post (urlf "/events/%s/event-log/append" ssid))
                    resp->status+json))
             "Session does not exist")))
 
@@ -254,9 +259,7 @@
                                {"Market name" "MATCH_BETTING"
                                 "Outcome"     "AWAY"
                                 "Calc"        "lose"}]}]
-               (-> (req! :post
-                         (urlf "/files/%s/%s/event-log/append" test-file-id ssid)
-                         (json/generate-string events))
+               (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid) events)
                    (resp->status+json :keywordize false)))
             "should successfully append log")
 
@@ -268,7 +271,7 @@
                                 "GamePart"   "Half1"
                                 "Standart"   "Corner"
                                 "Team"       "Team1"}]}]
-               (-> (req! :get (urlf "/files/%s/%s/event-log" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s/event-log" ssid))
                    (resp->status+json :keywordize false)))
             "should return appended log")))))
 
@@ -280,7 +283,7 @@
     (testing "set logs on non-existed session"
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created" ssid))]
-               (-> (req! :post (urlf "/files/%s/%s/event-log/set" test-file-id ssid))
+               (-> (req! :post (urlf "/events/%s/event-log/set" ssid))
                    resp->status+json))
             "should return error")))
 
@@ -319,9 +322,7 @@
                                {"Market name" "MATCH_BETTING"
                                 "Outcome"     "AWAY"
                                 "Calc"        "win"}]}]
-               (-> (req! :post
-                         (urlf "/files/%s/%s/event-log/set" test-file-id ssid)
-                         (json/generate-string [event2]))
+               (-> (json-req! :post (urlf "/events/%s/event-log/set" ssid) [event2])
                    (resp->status+json :keywordize false))))
         (is (= [200 {"status" 200
                      "data"   [{"EventType"  "Goal"
@@ -331,7 +332,7 @@
                                 "BodyPart"   "Head"
                                 "Accidental" "OwnGoal"
                                 "Action"     ""}]}]
-               (-> (req! :get (urlf "/files/%s/%s/event-log" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s/event-log" ssid))
                    (resp->status+json :keywordize false))))))))
 
 (deftest session-get-settlements-test
@@ -342,7 +343,7 @@
     (testing "with not created session"
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created" ssid))]
-               (-> (req! :get (urlf "/files/%s/%s/settlements" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s/settlements" ssid))
                    resp->status+json))
             "should return error")))
 
@@ -361,7 +362,7 @@
                                {"Market name" "MATCH_BETTING"
                                 "Outcome"     "AWAY"
                                 "Calc"        "lose"}]}]
-               (-> (req! :get (urlf "/files/%s/%s/settlements" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s/settlements" ssid))
                    (resp->status+json :keywordize false))))))))
 
 (deftest session-get-workbook-test
@@ -372,7 +373,7 @@
     (testing "with not created session"
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created" ssid))]
-               (-> (req! :get (urlf "/files/%s/%s" test-file-id ssid))
+               (-> (req! :get (urlf "/events/%s" ssid))
                    resp->status+json))
             "should return error")))
 
@@ -380,7 +381,7 @@
       (let [ssid (gen-session-id)]
         (create-test-session! ssid)
 
-        (let [resp (req! :get (urlf "/files/%s/%s" test-file-id ssid))]
+        (let [resp (req! :get (urlf "/events/%s" ssid))]
           (is (= 200 (:status resp)))
           (is (= "application/octet-stream"
                  (-> resp :headers :content-type)))
@@ -396,7 +397,7 @@
     (testing "with not created session"
       (let [ssid (gen-session-id)]
         (is (= [404 (hd/new-error 404 "SNF" (format "Session with id '%s' is not created" ssid))]
-               (-> (req! :delete (urlf "/files/%s/%s" test-file-id ssid))
+               (-> (req! :delete (urlf "/events/%s" ssid))
                    resp->status+json))
             "should return error")))
 
@@ -406,5 +407,5 @@
         (create-test-session! ssid)
 
         (is (= [200 (empty-body 200)]
-               (-> (req! :delete (urlf "/files/%s/%s" test-file-id ssid))
+               (-> (req! :delete (urlf "/events/%s" ssid))
                    (resp->status+body))))))))

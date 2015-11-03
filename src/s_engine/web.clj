@@ -52,7 +52,8 @@
         hd/delete-file!))
 
 (def session-create
-  (comp hd/check-event-id
+  (comp hd/parse-params
+        hd/check-event-id
         hd/check-session-not-exists
         hd/parse-file-id
         hd/check-file-exists
@@ -107,31 +108,32 @@
   (DELETE "/files/:file-id" {:keys [web params]}
     (hd/call file-delete params web))
 
-  (POST "/files/:file-id/:event-id" {:keys [web params]}
-    (hd/call session-create params web))
+  (GET "/events" req
+    (events-list req))
 
-  (GET "/files/:file-id/:event-id" {:keys [web params]}
+  (POST "/events" {:keys [web] :as r}
+    (let [params (req/body-string r)]
+      (hd/call session-create params web)))
+
+  (GET "/events/:event-id" {:keys [web params]}
     (hd/call session-get-workbook params web))
 
-  (DELETE "/files/:file-id/:event-id" {:keys [web params]}
+  (DELETE "/events/:event-id" {:keys [web params]}
     (hd/call session-finalize params web))
 
-  (GET "/files/:file-id/:event-id/event-log" {:keys [web params]}
+  (GET "/events/:event-id/settlements" {:keys [web params]}
+    (hd/call session-get-settlements params web))
+
+  (GET "/events/:event-id/event-log" {:keys [web params]}
     (hd/call session-get-event-log params web))
 
-  (POST "/files/:file-id/:event-id/event-log/append" {:keys [web params] :as r}
+  (POST "/events/:event-id/event-log/append" {:keys [web params] :as r}
     (let [events (req/body-string r)]
       (hd/call session-append-event (assoc params :events events) web)))
 
-  (POST "/files/:file-id/:event-id/event-log/set" {:keys [web params] :as r}
+  (POST "/events/:event-id/event-log/set" {:keys [web params] :as r}
     (let [events (req/body-string r)]
       (hd/call session-set-event-log (assoc params :events events) web)))
-
-  (GET "/files/:file-id/:event-id/settlements" {:keys [web params]}
-    (hd/call session-get-settlements params web))
-
-  (GET "/events" req
-    (events-list req))
 
   (ANY "/*" _ (hd/error-response 404 "RNF" "Resource not found")))
 

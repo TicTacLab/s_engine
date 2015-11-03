@@ -6,7 +6,8 @@
             [clojure.java.io :as io]
             [org.httpkit.client :as http]
             [clojure.string :as str]
-            [s-engine.web.handlers :as hd])
+            [s-engine.web.handlers :as hd]
+            [cheshire.core :as json])
   (:import (java.util UUID)))
 
 (def ^:const test-file-id 1)
@@ -31,6 +32,10 @@
                           :body   body}
                          opts))))
 
+(defn json-req!
+  [method url body]
+  (req! method url (json/generate-string body)))
+
 (defn urlf [path-fmt & args]
   (let [port (:port @c/config)
         path (apply format path-fmt args)]
@@ -44,7 +49,8 @@
     (is (= 200 (:status file-resp)) "Should upload file successfully!")))
 
 (defn create-test-session! [session-id]
-  (let [resp (req! :post (urlf "/files/%s/%s" test-file-id session-id))]
+  (let [resp (json-req! :post (urlf "/events") {:params {:file-id test-file-id,
+                                                  :event-id session-id}})]
     (is (= 200 (:status resp)) "Should successfully create session!")))
 
 (defn gen-session-id []

@@ -149,6 +149,14 @@
       (h (assoc params :file-id file-id) web)
       (error-response 400 "MFP" "Invalid file id"))))
 
+(defn parse-params [h]
+  (fn [params-str web]
+    (if-let [params-strs (json->clj params-str)]
+      (let [params-keywords (->> (get params-strs "params")
+                                 (into {} (map (fn [[k v]] [(keyword k) v]))))]
+        (h params-keywords web))
+      (error-response 400 "MFP" "Invalid params"))))
+
 (defn check-file-present [h]
   (fn [params web]
     (let [file (:file params)]
