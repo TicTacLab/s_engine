@@ -80,6 +80,12 @@
       (h p w)
       (error-response 400 "EAC" (format "Event with id '%s' is already created" event-id)))))
 
+(defn check-file-not-exists [h]
+  (fn [{file-id :file-id :as p} {storage :storage :as w}]
+    (if (file/exists? storage file-id)
+      (error-response 400 "FAE" "File already exists")
+      (h p w))))
+
 (defn check-file-exists [h]
   (fn [{file-id :file-id :as p} {storage :storage :as w}]
     (if (file/exists? storage file-id)
@@ -111,7 +117,7 @@
 (defn get-event-log [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
     (->> (session/get-one session-storage event-id)
-         (session/get-events)
+         (session/get-cached-event-log)
          (success-response 200))))
 
 (defn append-events! [h]
@@ -129,7 +135,7 @@
 (defn get-settlements [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
     (->> (session/get-one session-storage event-id)
-         (session/get-out)
+         (session/get-cached-out)
          (success-response 200))))
 
 (defn get-workbook [h]

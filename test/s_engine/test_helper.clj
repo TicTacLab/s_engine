@@ -41,20 +41,28 @@
         path (apply format path-fmt args)]
     (format "http://localhost:%d%s" port path)))
 
-(defn load-test-file! []
-  (let [file-resp (req! :post (urlf "/files/%s/upload" test-file-id) nil
+(defn load-test-file!
+  ([]
+   (load-test-file! test-file-id))
+
+  ([file-id]
+   (let [file-resp (req! :post (urlf "/files/%s/upload" file-id) nil
                          {:multipart [{:name     "file"
                                        :content  (io/file test-file)
                                        :filename "test-model.xlsx"}]})]
-    (is (= 200 (:status file-resp)) "Should upload file successfully!")))
+     (when (not= (:status file-resp) 200)
+       (throw (Exception. (format "Error during creating test file: %s" file-resp)))))))
 
-(defn create-test-session! [session-id]
-  (let [resp (json-req! :post (urlf "/events") {:params {:file-id test-file-id,
+(defn create-test-session! [file-id session-id]
+  (let [resp (json-req! :post (urlf "/events") {:params {:file-id file-id,
                                                   :event-id session-id}})]
     (is (= 200 (:status resp)) "Should successfully create session!")))
 
 (defn gen-session-id []
   (str (UUID/randomUUID)))
+
+(defn gen-file-id []
+  (mod (System/nanoTime) Integer/MAX_VALUE))
 
 (defn empty-body [status]
   (:body (hd/success-response status)))

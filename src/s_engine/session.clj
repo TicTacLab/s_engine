@@ -20,10 +20,6 @@
   [session-storage session-id]
   (contains? @(:session-table session-storage) session-id))
 
-(defn valid-event?
-  [session event]
-  (file/valid-event? (:file-wb session) event))
-
 (defn append-events!
   "Add event to session's event log"
   [storage session events]
@@ -31,10 +27,17 @@
     (file/append-events! file-wb events)
     (ev/append! storage (:id session) events)))
 
-(defn get-events
+(defn get-event-log
   "Get event log of session as sequence of events"
   [session]
   (file/get-event-log-rows (:file-wb session)))
+
+(defn get-cached-event-log
+  [session]
+  (let [event-log (file/get-cached-event-log-rows (:file-wb session))]
+    (if (seq event-log)
+      event-log
+      (file/get-event-log-rows (:file-wb session)))))
 
 (defn set-events!
   "Set event log of session to given seq of events"
@@ -46,6 +49,14 @@
   "Get market outcome sheet values"
   [session]
   (file/get-out-rows (:file-wb session)))
+
+(defn get-cached-out
+  "Get market outcome sheet values"
+  [session]
+  (let [out-rows (file/get-cached-out-rows (:file-wb session))]
+    (if (seq out-rows)
+      out-rows
+      (file/get-out-rows (:file-wb session)))))
 
 (defn get-workbook [session]
   (file/get-workbook (:file-wb session)))
@@ -84,3 +95,4 @@
 
 (defn new-session-storage []
   (map->SessionStorage {}))
+

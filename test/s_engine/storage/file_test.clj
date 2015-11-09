@@ -81,38 +81,6 @@
     (clear-event-log! file-wb)
     (is (empty? (get-event-log-rows file-wb)))))
 
-(deftest file-workbook-test
-  (let [event-types {"Goal"
-                                       {"Team"       #{"Team1" "Team2"}
-                                        "GamePart"   #{"Half1" "Half2" "Extratime1" "Extratime2"
-                                                       "PenaltyShootOut"}
-                                        "Standart"   #{"Corner" "Penalty" "FreeKick"}
-                                        "BodyPart"   #{"Head" "Leg"}
-                                        "Accidental" #{"OwnGoal"}}
-                     "Red Card"
-                                       {"Team"     #{"Team1" "Team2"}
-                                        "GamePart" #{"Half1" "Half2" "Extratime1" "Extratime2"}}
-                     "Yellow Card"
-                                       {"Team"     #{"Team1" "Team2"}
-                                        "GamePart" #{"Half1" "Half2" "Extratime1" "Extratime2"}}
-                     "Corner"
-                                       {"Team"     #{"Team1" "Team2"}
-                                        "GamePart" #{"Half1" "Half2" "Extratime1" "Extratime2"}}
-                     "Penalty"
-                                       {"Team"     #{"Team1" "Team2"}
-                                        "GamePart" #{"Half1" "Half2" "Extratime1" "Extratime2"
-                                                     "PenaltyShootOut"}}
-                     "Half1"           {"Action" #{"start" "stop"}}
-                     "Half2"           {"Action" #{"start" "stop"}}
-                     "Extratime1"      {"Action" #{"start" "stop"}}
-                     "Extratime2"      {"Action" #{"start" "stop"}}
-                     "PenaltyShootOut" {"Action" #{"start" "stop"}}
-                     "break"           {"Action" #{"start" "stop"}}
-                     "FullTime"        {"Action" #{"start" "stop"}}
-                     "Match"           {"Action" #{"start" "stop"}}}]
-    (is (= (->FileWorkbook :bytes event-types "AutoCalc_Soccer_EventLog.xlsx")
-           (-> (new-file-workbook test-file)
-               (assoc :workbook :bytes))))))
 
 (deftest finalize-test
   (let [file-wb (new-file-workbook test-file)]

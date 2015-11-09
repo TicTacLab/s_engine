@@ -79,7 +79,7 @@
 ;; ModelWorkbook
 ;;
 
-(defrecord FileWorkbook [workbook event-types file-name])
+(defrecord FileWorkbook [workbook event-types file-name out event-log])
 
 (defn get-event-type-attrs
   "Returns seq of attribute names declared in EventType sheet"
@@ -150,7 +150,9 @@
   (let [workbook (mx/parse (:file file))
         rows (mx/get-sheet workbook event-type-sheet)
         event-types (get-event-types rows)
-        file-wb (->FileWorkbook workbook event-types (:file-name file))]
+        out (atom [])
+        event-log (atom [])
+        file-wb (->FileWorkbook workbook event-types (:file-name file) out event-log)]
     (clear-event-log! file-wb)
     file-wb))
 
@@ -165,6 +167,7 @@
 (defn append-events!
   "Appends given events coll to end of event log sheet"
   [file-wb events]
+  (reset! (:event-log file-wb) events)
   (let [{:keys [workbook]} file-wb
         column-order (get-event-log-columns workbook)]
     (->> events
@@ -181,6 +184,11 @@
               (->> row
                    (remove (comp empty? second))
                    (into {}))))))
+
+(defn get-cached-event-log-rows
+  "Return cached event-log"
+  [file-wb]
+  @(:event-log file-wb))
 
 (defn set-event-log!
   "Sets contents of event log sheet to given coll of events"
@@ -202,4 +210,11 @@
 (defn get-out-rows
   "Returns contents of out sheet"
   [file-wb]
-  (mx/get-sheet (:workbook file-wb) out-sheet))
+  (let [result (mx/get-sheet (:workbook file-wb) out-sheet)]
+    (reset! (:out file-wb) result)
+    result))
+
+(defn get-cached-out-rows
+  "Returns cached out"
+  [file-wb]
+  @(:out file-wb))

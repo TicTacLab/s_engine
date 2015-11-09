@@ -33,6 +33,7 @@
 
 (def file-upload
   (comp hd/parse-file-id
+        hd/check-file-not-exists
         hd/check-file-present
         hd/check-file-type
         hd/check-file-validity

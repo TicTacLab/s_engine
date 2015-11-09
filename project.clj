@@ -25,12 +25,12 @@
                  :init-ns user}
   :uberjar-name "s-engine-standalone.jar"
   :jvm-opts ["-Dlogback.configurationFile=logback.xml"]
-  :repositories ^:replace [["snapshots" {:url "http://52.28.244.218:8080/repository/snapshots"
-                                         :username :env
-                                         :password :env}]
-                           ["releases" {:url "http://52.28.244.218:8080/repository/internal"
-                                        :username :env
-                                        :password :env}]]
+  :repositories ^:replace [["snapshots" {:url      "http://52.28.244.218:8080/repository/snapshots"
+                                         :username [:env :gpg]
+                                         :password [:env :gpg]}]
+                           ["releases" {:url      "http://52.28.244.218:8080/repository/internal"
+                                        :username [:env :gpg]
+                                        :password [:env :gpg]}]]
 
   :plugins [[lein-ring "0.8.2"]
             [lein-environ "1.0.0"]]
