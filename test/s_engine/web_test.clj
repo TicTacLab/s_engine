@@ -42,7 +42,7 @@
     (testing "empty body"
       (let [file-id (gen-file-id)]
         (is (= [400 (hd/new-error 400 "MFP" "No file sent")]
-               (-> (req! :post (>trace (urlf "/files/%s/upload" file-id)))
+               (-> (req! :post (urlf "/files/%s/upload" file-id))
                    (resp->status+json)))
             "should check file for existance")))
 
@@ -203,8 +203,13 @@
               "Session created succesfully")
 
           (let [sessions (-> (req! :get (urlf "/events"))
-                             :body json/parse-string (get "data") set)]
-            (is (contains? sessions ssid)
+                             :body
+                             (json/parse-string)
+                             (get "data"))
+                session-ids (->> sessions
+                                 (map #(get % "id"))
+                                 (set))]
+            (is (session-ids ssid)
                 "session should be present"))))
 
       (testing "session double creating"
@@ -221,8 +226,11 @@
               "should fail because session already exists")
 
           (let [sessions (-> (req! :get (urlf "/events"))
-                             :body json/parse-string (get "data") set)]
-            (is (contains? sessions ssid)
+                             :body json/parse-string (get "data") set)
+                session-ids (->> sessions
+                                 (map #(get % "id"))
+                                 (set))]
+            (is (session-ids ssid)
                 "session should be present")))))))
 
 (deftest session-get-event-log-test

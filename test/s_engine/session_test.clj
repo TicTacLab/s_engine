@@ -16,7 +16,7 @@
 
       (let [{:keys [session-storage storage]} system
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)]
+            session (create! session-storage storage file-id session-id "test event")]
         (is (= session
                (get @(:session-table session-storage) session-id)))
         (is (empty? (get-event-log session)))))))
@@ -31,7 +31,7 @@
             event {"EventType" "Test"}
             session-id (gen-session-id)]
         (ev/refresh! storage session-id [event])
-        (let [session (create! session-storage storage file-id session-id)]
+        (let [session (create! session-storage storage file-id session-id "test event")]
           (is (= session
                  (get @(:session-table session-storage) session-id)))
           (is (= [event]
@@ -47,7 +47,7 @@
 
       (let [{:keys [session-storage storage]} system
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)]
+            session (create! session-storage storage file-id session-id "test event")]
         (is (= session
                (get-one session-storage session-id)))))))
 
@@ -60,7 +60,7 @@
 
       (let [{:keys [session-storage storage]} system
            session-id (gen-session-id)
-           session (create! session-storage storage file-id session-id)
+           session (create! session-storage storage file-id session-id "test event")
            event {"EventType"  "Goal"
                   "Team"       "Team1"
                   "GamePart"   "Half1"
@@ -81,7 +81,7 @@
       (load-test-file! file-id)
       (let [{:keys [session-storage storage]} system
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)
+            session (create! session-storage storage file-id session-id "test event")
             event1 {"EventType"  "Goal"
                     "Team"       "Team1"
                     "GamePart"   "Half1"
@@ -121,7 +121,7 @@
                     "BodyPart"   "Head"
                     "Accidental" "OwnGoal"}
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)]
+            session (create! session-storage storage file-id session-id "test event")]
         (append-events! storage session [event1])
         (set-events! storage session [event2])
         (is (= [event2]
@@ -136,7 +136,7 @@
       (load-test-file! file-id)
       (let [{:keys [session-storage storage]} system
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)]
+            session (create! session-storage storage file-id session-id "test event")]
         (is (= [{"Market name" "MATCH_BETTING"
                  "Outcome"     "HOME"
                  "Calc"        "lose"}
@@ -154,7 +154,7 @@
       (load-test-file! file-id)
       (let [{:keys [session-storage storage]} system
             session-id (gen-session-id)
-            session (create! session-storage storage file-id session-id)
+            session (create! session-storage storage file-id session-id  "test event")
             event {"EventType"  "Goal"
                    "min"        0.
                    "sec"        0.
