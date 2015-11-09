@@ -4,7 +4,7 @@
             [s-engine.storage.file :as file]
             [s-engine.storage.event-log :as ev]))
 
-(defrecord Session [id file-wb file-id])
+(defrecord Session [id file-wb file-id description])
 
 (defn get-one
   "Return single session by id or nil if not found"
@@ -14,7 +14,11 @@
 (defn get-all-ids
   "Returns all sessions"
   [session-storage]
-  (keys @(:session-table session-storage)))
+  (->> session-storage
+       :session-table
+       (deref)
+       (vals)
+       (map #(select-keys % [:id :description]))))
 
 (defn exists?
   [session-storage session-id]
@@ -63,10 +67,10 @@
 
 (defn create!
   "Creates new session."
-  [session-storage storage file-id session-id]
+  [session-storage storage file-id session-id description]
   (let [file (file/get-one storage file-id)
         file-wb (file/new-file-workbook file)
-        session (->Session session-id file-wb (:id file))
+        session (->Session session-id file-wb (:id file) description)
         events (ev/fetch storage session-id)]
     (swap! (:session-table session-storage) assoc session-id session)
     (when events
