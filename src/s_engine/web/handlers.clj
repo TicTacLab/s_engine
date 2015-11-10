@@ -104,8 +104,8 @@
     (success-response 200)))
 
 (defn create-session! [h]
-  (fn [{:keys [file-id event-id]} {:keys [session-storage storage]}]
-    (session/create! session-storage storage file-id event-id)
+  (fn [{:keys [file-id event-id description]} {:keys [session-storage storage]}]
+    (session/create! session-storage storage file-id event-id description)
     (success-response 200)))
 
 (defn finalize-session! [h]

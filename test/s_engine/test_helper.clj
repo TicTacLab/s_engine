@@ -55,7 +55,7 @@
 
 (defn create-test-session! [file-id session-id]
   (let [resp (json-req! :post (urlf "/events") {:params {:file-id file-id,
-                                                  :event-id session-id}})]
+                                                         :event-id session-id}})]
     (is (= 200 (:status resp)) "Should successfully create session!")))
 
 (defn gen-session-id []
