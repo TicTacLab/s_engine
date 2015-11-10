@@ -9,13 +9,13 @@
            (java.io ByteArrayOutputStream OutputStream)
            (java.util Date)))
 
-(def ^:const event-type-sheet "EventType")
-(def ^:const event-log-sheet "EventLog")
-(def ^:const out-sheet "OUT")
+(def event-type-sheet "EventType")
+(def event-log-sheet "EventLog")
+(def out-sheet "OUT")
 
-(def ^:const event-type-column "EventType")
-(def ^:const event-type-attr-column "MetaKey")
-(def ^:const event-type-value-column "MetaValue")
+(def event-type-column "EventType")
+(def event-type-attr-column "Attribute")
+(def event-type-value-column "Value")
 
 ;;
 ;; Persistense
@@ -127,22 +127,8 @@
     {}
     rows))
 
-(defn valid-event-attrs?
-  [file-wb event]
-  (let [{event-type "EventType"} event]
-    (->> (get-in file-wb [:event-types event-type])
-         (every?
-           (fn [[attr-name valid-values]]
-             (contains? valid-values (get event attr-name)))))))
-
-(defn valid-event?
-  [file-wb event]
-  (let [{event-type "EventType" :strs [min sec]} event]
-    (and (contains? (:event-types file-wb) event-type)
-         min sec
-         (valid-event-attrs? file-wb event))))
-
 (defn clear-event-log! [file-wb]
+  (reset! (:event-log file-wb) [])
   (mx/remove-rows! (:workbook file-wb) event-log-sheet 1))
 
 (defn new-file-workbook
@@ -157,6 +143,8 @@
     file-wb))
 
 (defn finalize! [file-wb]
+  (reset! (:out file-wb) nil)
+  (reset! (:event-log file-wb) nil)
   (.close ^Workbook (:workbook file-wb)))
 
 (defn event->row-data
@@ -167,7 +155,7 @@
 (defn append-events!
   "Appends given events coll to end of event log sheet"
   [file-wb events]
-  (reset! (:event-log file-wb) events)
+  (swap! (:event-log file-wb) into events)
   (let [{:keys [workbook]} file-wb
         column-order (get-event-log-columns workbook)]
     (->> events

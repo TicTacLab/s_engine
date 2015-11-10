@@ -20,12 +20,18 @@
   [session-storage session-id]
   (contains? @(:session-table session-storage) session-id))
 
+(defn get-out
+  "Get market outcome sheet values"
+  [session]
+  (file/get-out-rows (:file-wb session)))
+
 (defn append-events!
   "Add event to session's event log"
   [storage session events]
   (let [{:keys [file-wb]} session]
     (file/append-events! file-wb events)
-    (ev/append! storage (:id session) events)))
+    (ev/append! storage (:id session) events)
+    (get-out session)))
 
 (defn get-event-log
   "Get event log of session as sequence of events"
@@ -43,12 +49,8 @@
   "Set event log of session to given seq of events"
   [storage session events]
   (file/set-event-log! (:file-wb session) events)
-  (ev/refresh! storage (:id session) events))
-
-(defn get-out
-  "Get market outcome sheet values"
-  [session]
-  (file/get-out-rows (:file-wb session)))
+  (ev/refresh! storage (:id session) events)
+  (get-out session))
 
 (defn get-cached-out
   "Get market outcome sheet values"

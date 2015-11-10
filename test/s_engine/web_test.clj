@@ -264,12 +264,18 @@
 
       (testing "normal log append"
         (let [ssid (gen-session-id)
-              events [{"EventType"  "Goal"
-                       "Team"       "Team1"
-                       "GamePart"   "Half1"
-                       "Standart"   "Corner"
-                       "BodyPart"   "Head"
-                       "Accidental" "OwnGoal"}]]
+              event1 {"EventType"  "Goal"
+                      "Team"       "Team1"
+                      "GamePart"   "Half1"
+                      "Standart"   "Corner"
+                      "BodyPart"   "Head"
+                      "Accidental" "OwnGoal"}
+              event2 {"EventType"  "Goal"
+                      "Team"       "Team2"
+                      "GamePart"   "Half1"
+                      "Standart"   "Corner"
+                      "BodyPart"   "Head"
+                      "Accidental" "OwnGoal"}]
 
           (create-test-session! file-id ssid)
 
@@ -283,9 +289,11 @@
                                  {"Market name" "MATCH_BETTING"
                                   "Outcome"     "AWAY"
                                   "Calc"        "lose"}]}]
-                 (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid) {:params events})
+                 (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid) {:params [event1]})
                      (resp->status+json :keywordize false)))
               "should successfully append log")
+
+          (json-req! :post (urlf "/events/%s/event-log/append" ssid) {:params [event2]})
 
           (is (= [200 {"status" 200
                        "data"   [{"Accidental" "OwnGoal"
@@ -293,7 +301,13 @@
                                   "EventType"  "Goal"
                                   "GamePart"   "Half1"
                                   "Standart"   "Corner"
-                                  "Team"       "Team1"}]}]
+                                  "Team"       "Team1"}
+                                 {"EventType"  "Goal"
+                                  "Team"       "Team2"
+                                  "GamePart"   "Half1"
+                                  "Standart"   "Corner"
+                                  "BodyPart"   "Head"
+                                  "Accidental" "OwnGoal"}]}]
                  (-> (req! :get (urlf "/events/%s/event-log" ssid))
                      (resp->status+json :keywordize false)))
               "should return appended log"))))))

@@ -123,14 +123,12 @@
 (defn append-events! [h]
   (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (session/append-events! storage session events)
-      (success-response 200 (session/get-out session)))))
+      (success-response 200 (session/append-events! storage session events)))))
 
 (defn set-events! [h]
   (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (session/set-events! storage session events)
-      (success-response 200 (session/get-out session)))))
+      (success-response 200 (session/set-events! storage session events)))))
 
 (defn get-settlements [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]

@@ -129,7 +129,7 @@
     (hd/call session-get-event-log params web))
 
   (POST "/events/:event-id/event-log/append" {:keys [web params] :as r}
-    (let [events (req/body-string r)]
+    (let [events (>trace (req/body-string r))]
       (hd/call session-append-event (assoc params :events events) web)))
 
   (POST "/events/:event-id/event-log/set" {:keys [web params] :as r}
