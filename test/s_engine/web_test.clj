@@ -42,7 +42,7 @@
     (testing "empty body"
       (let [file-id (gen-file-id)]
         (is (= [400 (hd/new-error 400 "MFP" "No file sent")]
-               (-> (req! :post (>trace (urlf "/files/%s/upload" file-id)))
+               (-> (req! :post (urlf "/files/%s/upload" file-id))
                    (resp->status+json)))
             "should check file for existance")))
 
