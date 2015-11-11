@@ -31,9 +31,7 @@
 
 (defn is-field-equal?
   [k v record]
-  (->> (get record k)
-       (= v)
-       ))
+  (= v (get record k)))
 
 (defn filter-out
   [k-v-filters out-sheet]
@@ -41,16 +39,14 @@
                             k-v-filters
                             (mapcat (fn [[k v]] (mapv #(partial is-field-equal? k %) v)))
                             (apply some-fn))]
-    (filter filter-predicates out-sheet)))
+    (filter #(not (filter-predicates %)) out-sheet)))
 
-(defn set-out!
+(defn clean-out!
   "Filter and Set OUT markets"
   [session k-v-filters]
-  (let [current-out (get-out session)
-        markets (filter-out k-v-filters current-out)
-        markets-for-out (mapv vals markets)]
-    (file/set-out-sheet! (:file-wb session) markets-for-out)
-    markets))
+  (let [current-out (file/get-out-row-numbers (:file-wb session))
+        rows-for-clean (->> (filter-out k-v-filters current-out) (mapv :row-number))]
+    (file/remove-out-row-numbers! (:file-wb session) rows-for-clean)))
 
 (defn append-events!
   "Add event to session's event log"

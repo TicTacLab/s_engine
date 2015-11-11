@@ -180,7 +180,7 @@
                                session-id (gen-session-id)
                                session (create! session-storage storage file-id session-id "test event")
                                markets {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
-                               current-out (get-out session)
+
                                out-markets [{"Calc triger" "YES"
                                              "Calc"        "LOSE"
                                              "Game Part"   "Full Time"
@@ -217,7 +217,8 @@
                                              "Param"       999999.0
                                              "id"          8.0}]]
 
+                           (clean-out! session markets)
                            (is (= out-markets
-                                  (filter-out markets current-out)
+                                  (get-out session)
                                   ))
                            ))))

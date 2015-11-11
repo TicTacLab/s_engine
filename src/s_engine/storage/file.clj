@@ -207,11 +207,13 @@
   [file-wb]
   @(:out file-wb))
 
-(defn set-out-sheet!
-  [file-wb new-out]
-  (let [{:keys [workbook]} file-wb
-        column-order (get-sheet-columns workbook out-sheet)]
-    (mx/remove-rows! (:workbook file-wb) out-sheet 1)
-    (->> new-out
-         (map #(event->row-data column-order %))
-         (mx/append-rows! workbook out-sheet))))
+(defn get-out-row-numbers
+  "Returns contents of out sheet with :row-number value"
+  [file-wb]
+  (mx/get-sheet-with-row (:workbook file-wb) out-sheet))
+
+(defn remove-out-row-numbers!
+  [file-wb row-numbers]
+  (mx/remove-row-numbers! (:workbook file-wb) out-sheet row-numbers))
+
+
