@@ -29,6 +29,29 @@
   [session]
   (file/get-out-rows (:file-wb session)))
 
+(defn is-field-equal?
+  [k v record]
+  (->> (get record k)
+       (= v)
+       ))
+
+(defn filter-out
+  [k-v-filters out-sheet]
+  (let [filter-predicates (->>
+                            k-v-filters
+                            (mapcat (fn [[k v]] (mapv #(partial is-field-equal? k %) v)))
+                            (apply some-fn))]
+    (filter filter-predicates out-sheet)))
+
+(defn set-out!
+  "Filter and Set OUT markets"
+  [session k-v-filters]
+  (let [current-out (get-out session)
+        markets (filter-out k-v-filters current-out)
+        markets-for-out (mapv vals markets)]
+    (file/set-out-sheet! (:file-wb session) markets-for-out)
+    markets))
+
 (defn append-events!
   "Add event to session's event log"
   [storage session events]

@@ -454,3 +454,5 @@
           (is (= [200 (empty-body 200)]
                  (-> (req! :delete (urlf "/events/%s" ssid))
                      (resp->status+body)))))))))
+
+
