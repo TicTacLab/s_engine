@@ -202,4 +202,15 @@
         (error-response 400 "MFP" "At least 1 event should be sent"))
       (error-response 400 "MFP" "Events should be inside json array"))))
 
+(defn parse-out-filters [h]
+  (fn [params w]
+    (if-let [filters-map (json->clj (:filters params))]
+      (h (assoc params :filters filters-map) w)
+      (error-response 400 "MFP" "Malformed json body"))))
+
+(defn filter-and-clean-out! [h]
+  (fn [{:keys [filters event-id] :as r} {:keys [session-storage]}]
+    (let [session (session/get-one session-storage event-id)]
+      (success-response 200 (session/clean-out! session filters)))))
+
 

@@ -216,9 +216,8 @@
                                              "Outcome"     "AWAY"
                                              "Param"       999999.0
                                              "id"          8.0}]]
-
+                           ;; CLEAN OUT SHEET
                            (clean-out! session markets)
+
                            (is (= out-markets
-                                  (get-out session)
-                                  ))
-                           ))))
+                                  (get-out session)))))))

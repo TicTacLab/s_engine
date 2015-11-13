@@ -46,7 +46,8 @@
   [session k-v-filters]
   (let [current-out (file/get-out-row-numbers (:file-wb session))
         rows-for-clean (->> (filter-out k-v-filters current-out) (mapv :row-number))]
-    (file/remove-out-row-numbers! (:file-wb session) rows-for-clean)))
+    (file/remove-out-row-numbers! (:file-wb session) rows-for-clean)
+    (get-out session)))
 
 (defn append-events!
   "Add event to session's event log"
