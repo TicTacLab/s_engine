@@ -13,7 +13,8 @@
             [ring.adapter.jetty :as jetty]
             [s-engine.storage.file :as file]
             [s-engine.session :as session]
-            [s-engine.session :as session])
+            [s-engine.session :as session]
+            [ring.util.response :as res])
   (:import (org.eclipse.jetty.server Server)))
 
 (defn files-list
@@ -150,13 +151,18 @@
         (log/error e "while request handling")
         (hd/error-response 500 "ISE" "Internal server error")))))
 
+(defn wrap-cors [h]
+  (fn [req]
+    (res/header (h req) "access-control-allow-origin" "*")))
+
 (defn app [web]
   (-> routes
       (wrap-params)
       (wrap-keyword-params)
       (wrap-multipart-params)
       (wrap-with-web web)
-      (wrap-errors)))
+      (wrap-errors)
+      (wrap-cors)))
 
 (defrecord Web [host port server storage api]
   component/Lifecycle
