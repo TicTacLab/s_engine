@@ -89,10 +89,10 @@
        (remove #(nil? %))
        distinct))
 
-(defn get-event-log-columns
+(defn get-sheet-columns
   "Returns seq of column names declared in header of EventLog sheet"
-  [workbook]
-  (->> (mx/get-sheet-header workbook event-log-sheet)
+  [workbook sheet-name]
+  (->> (mx/get-sheet-header workbook sheet-name)
        (remove #(empty? %))))
 
 (defn validate-columns
@@ -109,7 +109,7 @@
         attrs (-> workbook
                   (mx/get-sheet event-type-sheet)
                   (get-event-type-attrs))
-        event-log-columns (get-event-log-columns workbook)]
+        event-log-columns (get-sheet-columns workbook event-log-sheet)]
     (validate-columns attrs event-log-columns)))
 
 (defn get-event-types [rows]
@@ -157,7 +157,7 @@
   [file-wb events]
   (swap! (:event-log file-wb) into events)
   (let [{:keys [workbook]} file-wb
-        column-order (get-event-log-columns workbook)]
+        column-order (get-sheet-columns workbook event-log-sheet)]
     (->> events
          (map #(event->row-data column-order %))
          (mx/append-rows! workbook event-log-sheet))))
@@ -206,3 +206,14 @@
   "Returns cached out"
   [file-wb]
   @(:out file-wb))
+
+(defn get-out-row-numbers
+  "Returns contents of out sheet with :row-number value"
+  [file-wb]
+  (mx/get-sheet-with-row (:workbook file-wb) out-sheet))
+
+(defn remove-out-row-numbers!
+  [file-wb row-numbers]
+  (mx/remove-row-numbers! (:workbook file-wb) out-sheet row-numbers))
+
+

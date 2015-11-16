@@ -94,6 +94,13 @@
         hd/check-session-exists
         hd/get-workbook))
 
+(def session-set-out
+  (comp hd/check-event-id
+        hd/check-session-exists
+        hd/parse-out-filters
+        hd/filter-and-clean-out!
+        ))
+
 (defroutes routes
   (GET "/files" req
     (files-list req))
@@ -119,6 +126,12 @@
 
   (GET "/events/:event-id" {:keys [web params]}
     (hd/call session-get-workbook params web))
+
+  ;;;;;;;;; CREATE EVENT SET MARKET TYPES TO BE SETTLED
+
+  (POST "/events/:event-id/out/set" {:keys [web params] :as r}
+    (let [filters (req/body-string r)]
+      (hd/call session-set-out (assoc params :filters filters) web)))
 
   (DELETE "/events/:event-id" {:keys [web params]}
     (hd/call session-finalize params web))

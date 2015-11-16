@@ -454,3 +454,73 @@
           (is (= [200 (empty-body 200)]
                  (-> (req! :delete (urlf "/events/%s" ssid))
                      (resp->status+body)))))))))
+
+
+(deftest create-event-test
+  (with-started-system [system]
+
+                       (let [file-id (gen-file-id)]
+
+                         (load-test-file! file-id test-file3)
+
+                         (testing "communicating to not created session"
+                           (let [ssid (gen-session-id)]
+                             (is (= [404 (hd/new-error 404 "ENF" (format "Event with id '%s' is not created" ssid))]
+                                    (-> (req! :post (urlf "/events/%s/out/set" ssid))
+                                        resp->status+json))
+                                 "Session does not exist")))
+
+
+                         (testing "normal create event"
+                           (let [ssid (gen-session-id)
+                                 filters {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
+                                 out-markets [{"Calc triger" "YES"
+                                               "Calc"        "LOSE"
+                                               "Game Part"   "Full Time"
+                                               "Market name" "MATCH_BETTING"
+                                               "Outcome"     "HOME"
+                                               "Param"       999999.0
+                                               "id"          1.0}
+                                              {"Calc triger" "YES"
+                                               "Calc"        "WIN"
+                                               "Game Part"   "Full Time"
+                                               "Market name" "MATCH_BETTING"
+                                               "Outcome"     "DRAW"
+                                               "Param"       999999.0
+                                               "id"          2.0}
+                                              {"Calc triger" "YES"
+                                               "Calc"        "LOSE"
+                                               "Game Part"   "Full Time"
+                                               "Market name" "MATCH_BETTING"
+                                               "Outcome"     "AWAY"
+                                               "Param"       999999.0
+                                               "id"          3.0}
+                                              {"Calc triger" "YES"
+                                               "Calc"        "RETURN"
+                                               "Game Part"   "Full Time"
+                                               "Market name" "MATCH_DRAW_NO_BET"
+                                               "Outcome"     "HOME"
+                                               "Param"       999999.0
+                                               "id"          7.0}
+                                              {"Calc triger" "YES"
+                                               "Calc"        "RETURN"
+                                               "Game Part"   "Full Time"
+                                               "Market name" "MATCH_DRAW_NO_BET"
+                                               "Outcome"     "AWAY"
+                                               "Param"       999999.0
+                                               "id"          8.0}]]
+
+
+
+                             (create-test-session! file-id ssid)
+
+                             (is (= [200 {"status" 200
+                                          "data"   out-markets}]
+                                    (-> (json-req! :post (urlf "/events/%s/out/set" ssid) filters)
+                                        (resp->status+json :keywordize false))))
+
+                             (is (= [200 {"status" 200
+                                          "data"   out-markets}]
+                                    (-> (req! :get (urlf "/events/%s/settlements" ssid))
+                                        (resp->status+json :keywordize false))))))
+                         )))

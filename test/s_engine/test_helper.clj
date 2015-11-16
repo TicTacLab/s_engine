@@ -13,6 +13,7 @@
 (def ^:const test-file-id 1)
 (def ^:const test-file "test/resources/AutoCalc_Soccer_EventLog.xlsx")
 (def ^:const test-file2 "test/resources/AutoCalc_Soccer_EventLog_FOR_REPLACE.xlsx")
+(def ^:const test-file3 "test/resources/AutoCalc_Soccer_EventLog1.xlsx")
 (def ^:const invalid-file "test/resources/AutoCalc_Soccer_EventLog.invalid.xlsx")
 
 (defmacro with-started-system
@@ -44,14 +45,16 @@
 (defn load-test-file!
   ([]
    (load-test-file! test-file-id))
-
   ([file-id]
+   (load-test-file! file-id test-file))
+  ([file-id file-name]
    (let [file-resp (req! :post (urlf "/files/%s/upload" file-id) nil
                          {:multipart [{:name     "file"
-                                       :content  (io/file test-file)
+                                       :content  (io/file file-name)
                                        :filename "test-model.xlsx"}]})]
      (when (not= (:status file-resp) 200)
-       (throw (Exception. (format "Error during creating test file: %s" file-resp)))))))
+       (throw (Exception. (format "Error during creating test file: %s" file-resp))))))
+  )
 
 (defn create-test-session! [file-id session-id]
   (let [resp (json-req! :post (urlf "/events") {:params {:file-id file-id,
