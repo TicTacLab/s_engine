@@ -134,8 +134,7 @@
 (defn new-file-workbook
   [file]
   (let [workbook (mx/parse (:file file))
-        rows (mx/get-sheet workbook event-type-sheet)
-        event-types (get-event-types rows)
+        event-types (get-event-types (mx/get-sheet workbook event-type-sheet))
         out (atom [])
         event-log (atom [])
         file-wb (->FileWorkbook workbook event-types (:file-name file) out event-log)]
@@ -216,4 +215,33 @@
   [file-wb row-numbers]
   (mx/remove-row-numbers! (:workbook file-wb) out-sheet row-numbers))
 
+(defn extra-event-types [{ets :event-types} events]
+  (->> events
+       (map #(get % "EventType"))
+       (remove #(contains? ets %))))
 
+
+(defn extra-attributes
+  "Returns pairs of [event-type #{wrong attributes}]"
+  [{ets :event-types} events]
+  (->> events
+       (map (fn [{et "EventType" :as event}]
+              (let [actual-attributes (keys (get ets et))
+                    valid-attributes (keys (dissoc event "EventType"))
+                    extra-attrs (first (diff (set valid-attributes)
+                                             (set actual-attributes)))]
+                (when (seq extra-attrs)
+                  [et extra-attrs]))))
+       (remove nil?)))
+
+(defn invalid-values
+  "Returns triples of [event-type attribute INVALID-VALUE]"
+  [{ets :event-types} events]
+  (->> events
+       (mapcat (fn [{et "EventType" :as event}]
+              (->> (dissoc event "EventType")
+                   (map (fn [[attr value]]
+                          (let [valid-values (get-in ets [et attr])]
+                            (when-not (contains? valid-values value)
+                              [et attr value])))))))
+       (remove nil?)))

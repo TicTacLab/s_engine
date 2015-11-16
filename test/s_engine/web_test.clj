@@ -21,7 +21,7 @@
 (deftest resource-not-found-test
   (with-started-system [system]
     (is (= 404 (:status (req! :get (urlf "/invalid-url"))))
-       "Should return 404")))
+        "Should return 404")))
 
 (deftest file-upload-test
   (with-started-system [system]
@@ -59,12 +59,12 @@
     (testing "invalid file type"
       (let [file-id (gen-file-id)]
         (is (= [400 (hd/new-error 400 "MFP" "Invalid file type")]
-              (-> (req! :post (urlf "/files/%s/upload" file-id) nil
-                        {:multipart [{:name     "file"
-                                      :content  (io/file *file*)
-                                      :filename "test-model.xlsx"}]})
-                  (resp->status+json)))
-           "should check file type")))
+               (-> (req! :post (urlf "/files/%s/upload" file-id) nil
+                         {:multipart [{:name     "file"
+                                       :content  (io/file *file*)
+                                       :filename "test-model.xlsx"}]})
+                   (resp->status+json)))
+            "should check file type")))
 
     (testing "normal uploading"
       (let [file-id (gen-file-id)]
@@ -103,9 +103,9 @@
         (load-test-file! file-id)
 
         (is (= [400 (hd/new-error 400 "MFP" "No file sent")]
-              (-> (req! :post (urlf "/files/%s" file-id))
-                  (resp->status+json)))
-           "should validate file existance in params")))
+               (-> (req! :post (urlf "/files/%s" file-id))
+                   (resp->status+json)))
+            "should validate file existance in params")))
 
     (testing "invalid EventLog"
       (let [file-id (gen-file-id)]
@@ -113,12 +113,12 @@
         (load-test-file! file-id)
 
         (is (= [400 (hd/new-error 400 "MFP" "Missing Columns: [Action]; Extra Columns [Extra column];")]
-              (-> (req! :post (urlf "/files/%s" file-id) nil
-                        {:multipart [{:name     "file"
-                                      :content  (io/file invalid-file)
-                                      :filename "test-model.xlsx"}]})
-                  (resp->status+json)))
-           "should validate file before replace")))
+               (-> (req! :post (urlf "/files/%s" file-id) nil
+                         {:multipart [{:name     "file"
+                                       :content  (io/file invalid-file)
+                                       :filename "test-model.xlsx"}]})
+                   (resp->status+json)))
+            "should validate file before replace")))
 
     (testing "normal file replacement"
       (let [file-id (gen-file-id)]
@@ -150,7 +150,7 @@
 (deftest file-delete-test
   (with-started-system [system]
 
-(testing "delete not existed file"
+    (testing "delete not existed file"
       (is (= [404 (hd/new-error 404 "FNF" (format "File with id '%s' not found"
                                                   Integer/MAX_VALUE))]
              (-> (req! :delete (urlf "/files/%s" Integer/MAX_VALUE))
@@ -269,6 +269,48 @@
                  (-> (req! :post (urlf "/events/%s/event-log/append" ssid))
                      resp->status+json))
               "Session does not exist")))
+
+      (testing "event validation"
+        (testing "log append with wrong EventType"
+          (let [ssid (gen-session-id)
+                events [{"EventType" "Knockout"
+                         "Hand"      "Left"}]]
+            (create-test-session! file-id ssid)
+
+            (is (= [400 (hd/new-error 400 "MFP" "Event types [\"Knockout\"] does not exists")]
+                   (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid)
+                                  {:params events})
+                       (resp->status+json))))))
+
+        (testing "log append with wrong Attribute"
+          (let [ssid (gen-session-id)
+                events [{"EventType" "Goal"
+                         "Wind"      "NW"}
+                        {"EventType" "Red Card"
+                         "Wind"      "SW"}]]
+            (create-test-session! file-id ssid)
+
+            (is (= [400 (hd/new-error 400 "MFP"
+                                      (str "Event type \"Goal\" does not have attributes [\"Wind\"];"
+                                           "Event type \"Red Card\" does not have attributes [\"Wind\"]"))]
+                   (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid)
+                                  {:params events})
+                       (resp->status+json))))))
+
+        (testing "log append with wrong Value"
+          (let [ssid (gen-session-id)
+                events [{"EventType" "Goal"
+                         "Team"      "Team3"}
+                        {"EventType" "Red Card"
+                         "GamePart"  "Quarter1"}]]
+            (create-test-session! file-id ssid)
+
+            (is (= [400 (hd/new-error 400 "MFP"
+                                      (str "Attribute \"Team\" of Event type \"Goal\" has invalid value: \"Team3\";"
+                                           "Attribute \"GamePart\" of Event type \"Red Card\" has invalid value: \"Quarter1\""))]
+                   (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid)
+                                  {:params events})
+                       (resp->status+json)))))))
 
       (testing "normal log append"
         (let [ssid (gen-session-id)
@@ -459,68 +501,68 @@
 (deftest create-event-test
   (with-started-system [system]
 
-                       (let [file-id (gen-file-id)]
+    (let [file-id (gen-file-id)]
 
-                         (load-test-file! file-id test-file3)
+      (load-test-file! file-id test-file3)
 
-                         (testing "communicating to not created session"
-                           (let [ssid (gen-session-id)]
-                             (is (= [404 (hd/new-error 404 "ENF" (format "Event with id '%s' is not created" ssid))]
-                                    (-> (req! :post (urlf "/events/%s/out/set" ssid))
-                                        resp->status+json))
-                                 "Session does not exist")))
-
-
-                         (testing "normal create event"
-                           (let [ssid (gen-session-id)
-                                 filters {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
-                                 out-markets [{"Calc triger" "YES"
-                                               "Calc"        "LOSE"
-                                               "Game Part"   "Full Time"
-                                               "Market name" "MATCH_BETTING"
-                                               "Outcome"     "HOME"
-                                               "Param"       999999.0
-                                               "id"          1.0}
-                                              {"Calc triger" "YES"
-                                               "Calc"        "WIN"
-                                               "Game Part"   "Full Time"
-                                               "Market name" "MATCH_BETTING"
-                                               "Outcome"     "DRAW"
-                                               "Param"       999999.0
-                                               "id"          2.0}
-                                              {"Calc triger" "YES"
-                                               "Calc"        "LOSE"
-                                               "Game Part"   "Full Time"
-                                               "Market name" "MATCH_BETTING"
-                                               "Outcome"     "AWAY"
-                                               "Param"       999999.0
-                                               "id"          3.0}
-                                              {"Calc triger" "YES"
-                                               "Calc"        "RETURN"
-                                               "Game Part"   "Full Time"
-                                               "Market name" "MATCH_DRAW_NO_BET"
-                                               "Outcome"     "HOME"
-                                               "Param"       999999.0
-                                               "id"          7.0}
-                                              {"Calc triger" "YES"
-                                               "Calc"        "RETURN"
-                                               "Game Part"   "Full Time"
-                                               "Market name" "MATCH_DRAW_NO_BET"
-                                               "Outcome"     "AWAY"
-                                               "Param"       999999.0
-                                               "id"          8.0}]]
+      (testing "communicating to not created session"
+        (let [ssid (gen-session-id)]
+          (is (= [404 (hd/new-error 404 "ENF" (format "Event with id '%s' is not created" ssid))]
+                 (-> (req! :post (urlf "/events/%s/out/set" ssid))
+                     resp->status+json))
+              "Session does not exist")))
 
 
+      (testing "normal create event"
+        (let [ssid (gen-session-id)
+              filters {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
+              out-markets [{"Calc triger" "YES"
+                            "Calc"        "LOSE"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "HOME"
+                            "Param"       999999.0
+                            "id"          1.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "WIN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "DRAW"
+                            "Param"       999999.0
+                            "id"          2.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "LOSE"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "AWAY"
+                            "Param"       999999.0
+                            "id"          3.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "RETURN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_DRAW_NO_BET"
+                            "Outcome"     "HOME"
+                            "Param"       999999.0
+                            "id"          7.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "RETURN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_DRAW_NO_BET"
+                            "Outcome"     "AWAY"
+                            "Param"       999999.0
+                            "id"          8.0}]]
 
-                             (create-test-session! file-id ssid)
 
-                             (is (= [200 {"status" 200
-                                          "data"   out-markets}]
-                                    (-> (json-req! :post (urlf "/events/%s/out/set" ssid) filters)
-                                        (resp->status+json :keywordize false))))
 
-                             (is (= [200 {"status" 200
-                                          "data"   out-markets}]
-                                    (-> (req! :get (urlf "/events/%s/settlements" ssid))
-                                        (resp->status+json :keywordize false))))))
-                         )))
+          (create-test-session! file-id ssid)
+
+          (is (= [200 {"status" 200
+                       "data"   out-markets}]
+                 (-> (json-req! :post (urlf "/events/%s/out/set" ssid) filters)
+                     (resp->status+json :keywordize false))))
+
+          (is (= [200 {"status" 200
+                       "data"   out-markets}]
+                 (-> (req! :get (urlf "/events/%s/settlements" ssid))
+                     (resp->status+json :keywordize false))))))
+      )))

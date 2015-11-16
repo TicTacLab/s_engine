@@ -122,3 +122,12 @@
 (defn new-session-storage []
   (map->SessionStorage {}))
 
+(defn extra-event-types [session events]
+  (file/extra-event-types (:file-wb session) events))
+
+(defn extra-attributes [session events]
+  (file/extra-attributes (:file-wb session) events))
+
+(defn invalid-values [session events]
+  (file/invalid-values (:file-wb session) events))
+

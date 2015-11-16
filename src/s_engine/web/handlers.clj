@@ -192,15 +192,64 @@
       (h (assoc p :events events) w)
       (error-response 400 "MFP" "Malformed json body"))))
 
-(defn check-events [h]
+(defn sequential-events [h]
   (fn [{events :events :as p} w]
     (if (sequential? events)
-      (if (>= (count events) 1)
-        (if (every? #(contains? % "EventType") events)
-          (h p w)
-          (error-response 400 "MFP" "All events should have 'EventType' key"))
-        (error-response 400 "MFP" "At least 1 event should be sent"))
+      (h p w)
       (error-response 400 "MFP" "Events should be inside json array"))))
+
+(defn at-least-1-event [h]
+  (fn [{events :events :as p} w]
+    (if (>= (count events) 1)
+      (h p w)
+      (error-response 400 "MFP" "At least 1 event should be sent"))))
+
+(defn check-EventType-key [h]
+  (fn [{events :events :as p} w]
+    (if (every? #(contains? % "EventType") events)
+      (h p w)
+      (error-response 400 "MFP" "All events should have 'EventType' key"))))
+
+(defn check-extra-event-types [h]
+  (fn [{:keys [event-id events] :as p} {:keys [session-storage] :as w}]
+    (let [session (session/get-one session-storage event-id)
+          event-types (session/extra-event-types session events)]
+      (if (seq event-types)
+        (error-response 400 "MFP" (format "Event types %s does not exists"
+                                          (vec event-types)))
+        (h p w)))))
+
+(defn check-extra-attributes [h]
+  (fn [{:keys [event-id events] :as p} {:keys [session-storage] :as w}]
+    (let [session (session/get-one session-storage event-id)
+          extra-attributes (session/extra-attributes session events)]
+      (if (seq extra-attributes)
+        (error-response 400 "MFP" (->> extra-attributes
+                                       (map (fn [[et attrs]]
+                                              (format "Event type \"%s\" does not have attributes %s"
+                                                      et (vec attrs))))
+                                       (str/join ";")))
+        (h p w)))))
+
+(defn check-valid-values [h]
+  (fn [{:keys [event-id events] :as p} {:keys [session-storage] :as w}]
+    (let [session (session/get-one session-storage event-id)
+          invalid-values (session/invalid-values session events)]
+      (if (seq invalid-values)
+        (error-response 400 "MFP" (->> invalid-values
+                                       (map (fn [[et attr val]]
+                                              (format "Attribute \"%s\" of Event type \"%s\" has invalid value: \"%s\""
+                                                      attr et val)))
+                                       (str/join ";")))
+        (h p w)))))
+
+(def check-events
+  (comp sequential-events
+        at-least-1-event
+        check-EventType-key
+        check-extra-event-types
+        check-extra-attributes
+        check-valid-values))
 
 (defn parse-out-filters [h]
   (fn [params w]

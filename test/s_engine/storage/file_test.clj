@@ -33,39 +33,39 @@
          (get-event-type-attrs [])))
   (is (= ["Team" "Attribute"]
          (get-event-type-attrs [{"EventType" "Goal"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team1"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team1"}
                                 {"EventType" "Goal"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team2"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team2"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Attribute"
-                                 "MetaValue" "True"}
+                                 "Attribute"   "Attribute"
+                                 "Value" "True"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team1"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team1"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team2"}])))
+                                 "Attribute"   "Team"
+                                 "Value" "Team2"}])))
   (is (= ["Game Part" "Attribute" "Team"]
          (get-event-type-attrs [{"EventType" "Red Card"
-                                 "MetaKey"   "Game Part"
-                                 "MetaValue" "Half2"}
+                                 "Attribute"   "Game Part"
+                                 "Value" "Half2"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Attribute"
-                                 "MetaValue" "True"}
+                                 "Attribute"   "Attribute"
+                                 "Value" "True"}
                                 {"EventType" "Goal"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team1"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team1"}
                                 {"EventType" "Goal"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team2"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team2"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Team"
-                                 "MetaValue" "Team1"}
+                                 "Attribute"   "Team"
+                                 "Value" "Team1"}
                                 {"EventType" "Red Card"
-                                 "MetaKey"   "Game Part"
-                                 "MetaValue" "Half1"}]))))
+                                 "Attribute"   "Game Part"
+                                 "Value" "Half1"}]))))
 
 (deftest get-event-types-test
   (is (= {}
