@@ -260,6 +260,7 @@
 (defn filter-and-clean-out! [h]
   (fn [{:keys [filters event-id] :as r} {:keys [session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (success-response 200 (session/clean-out! session filters)))))
+      (session/clean-out! session filters)
+      (success-response 200))))
 
 
