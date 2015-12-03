@@ -2,9 +2,10 @@
   (:require [com.stuartsierra.component :as component]
             [s-engine.storage.workbook :refer [write-workbook!]]
             [s-engine.storage.file :as file]
-            [s-engine.storage.event-log :as ev]))
+            [s-engine.storage.event-log :as ev])
+  (:import (java.util.concurrent Semaphore)))
 
-(defrecord Session [id file-wb file-id description])
+(defrecord Session [id file-wb file-id description lock])
 
 (defn get-one
   "Return single session by id or nil if not found"
@@ -19,6 +20,12 @@
        (deref)
        (vals)
        (map #(select-keys % [:id :description]))))
+
+(defmacro with-locked-session [session & body]
+  `(when (.tryAcquire ^Semaphore (:lock ~session))
+     (try
+       ~@body
+       (finally (.release ^Semaphore (:lock ~session))))))
 
 (defn exists?
   [session-storage session-id]
@@ -92,7 +99,8 @@
   [session-storage storage file-id session-id description]
   (let [file (file/get-one storage file-id)
         file-wb (file/new-file-workbook file)
-        session (->Session session-id file-wb (:id file) description)
+        lock (Semaphore. 1)
+        session (->Session session-id file-wb (:id file) description lock)
         events (ev/fetch storage session-id)]
     (swap! (:session-table session-storage) assoc session-id session)
     (when events
@@ -106,7 +114,8 @@
     (write-workbook! storage (:id session) file-wb)
     (file/finalize! (:file-wb session))
     (swap! (:session-table session-storage) dissoc (:id session))
-    (ev/clear! storage (:id session))))
+    (ev/clear! storage (:id session))
+    true))                                                  ;; for useage in with-locked-session
 
 (defrecord SessionStorage [session-table storage]
   component/Lifecycle
