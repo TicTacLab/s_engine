@@ -177,7 +177,7 @@
 
     (let [file-id (gen-file-id)]
 
-      (load-test-file! file-id)
+      (load-test-file! file-id test-file3)
 
       (testing "session creating with not uploaded file"
         (let [ssid (gen-session-id)]
@@ -194,13 +194,56 @@
                 "session should be absent"))))
 
       (testing "normal session creating"
-        (let [ssid (gen-session-id)]
+        (let [ssid (gen-session-id)
+              filters {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
+              out-markets [{"Calc triger" "YES"
+                            "Calc"        "LOSE"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "HOME"
+                            "Param"       999999.0
+                            "id"          1.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "WIN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "DRAW"
+                            "Param"       999999.0
+                            "id"          2.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "LOSE"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_BETTING"
+                            "Outcome"     "AWAY"
+                            "Param"       999999.0
+                            "id"          3.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "RETURN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_DRAW_NO_BET"
+                            "Outcome"     "HOME"
+                            "Param"       999999.0
+                            "id"          7.0}
+                           {"Calc triger" "YES"
+                            "Calc"        "RETURN"
+                            "Game Part"   "Full Time"
+                            "Market name" "MATCH_DRAW_NO_BET"
+                            "Outcome"     "AWAY"
+                            "Param"       999999.0
+                            "id"          8.0}]]
           (is (= [200 (empty-body 200)]
                  (->> {:params {:file-id  file-id
-                                :event-id ssid}}
+                                :event-id ssid
+                                :filters filters}}
                       (json-req! :post (urlf "/events"))
                       resp->status+body))
               "Session created succesfully")
+
+          (is (= [200 {"status" 200
+                       "data"   out-markets}]
+                 (-> (req! :get (urlf "/events/%s/settlements" ssid))
+                     (resp->status+json :keywordize false))))
+
 
           (let [sessions (-> (req! :get (urlf "/events"))
                              :body
@@ -447,6 +490,16 @@
                      resp->status+json))
               "should return error")))
 
+      (testing "with locked session"
+        (let [ssid (gen-session-id)]
+          (create-test-session! file-id ssid)
+          (let [requests (doall
+                           (for [_ (range 10)]
+                             (future (req! :get (urlf "/events/%s/settlements" ssid)))))
+                statuses (set (mapv (comp :status deref) requests))]
+            (is (statuses 200))
+            (is (statuses 423)))))
+
       (testing "normal process"
         (let [ssid (gen-session-id)]
 
@@ -481,7 +534,6 @@
       (testing "normal process"
         (let [ssid (gen-session-id)]
           (create-test-session! file-id ssid)
-
           (let [resp (req! :get (urlf "/events/%s" ssid))]
             (is (= 200 (:status resp)))
             (is (= "application/octet-stream"
@@ -512,72 +564,3 @@
                  (-> (req! :delete (urlf "/events/%s" ssid))
                      (resp->status+body)))))))))
 
-
-(deftest create-event-test
-  (with-started-system [system]
-
-    (let [file-id (gen-file-id)]
-
-      (load-test-file! file-id test-file3)
-
-      (testing "communicating to not created session"
-        (let [ssid (gen-session-id)]
-          (is (= [404 (hd/new-error 404 "ENF" (format "Event with id '%s' is not created" ssid))]
-                 (-> (req! :post (urlf "/events/%s/out/set" ssid))
-                     resp->status+json))
-              "Session does not exist")))
-
-
-      (testing "normal create event"
-        (let [ssid (gen-session-id)
-              filters {"Market name" ["MATCH_BETTING" "MATCH_DRAW_NO_BET"]}
-              out-markets [{"Calc triger" "YES"
-                            "Calc"        "LOSE"
-                            "Game Part"   "Full Time"
-                            "Market name" "MATCH_BETTING"
-                            "Outcome"     "HOME"
-                            "Param"       999999.0
-                            "id"          1.0}
-                           {"Calc triger" "YES"
-                            "Calc"        "WIN"
-                            "Game Part"   "Full Time"
-                            "Market name" "MATCH_BETTING"
-                            "Outcome"     "DRAW"
-                            "Param"       999999.0
-                            "id"          2.0}
-                           {"Calc triger" "YES"
-                            "Calc"        "LOSE"
-                            "Game Part"   "Full Time"
-                            "Market name" "MATCH_BETTING"
-                            "Outcome"     "AWAY"
-                            "Param"       999999.0
-                            "id"          3.0}
-                           {"Calc triger" "YES"
-                            "Calc"        "RETURN"
-                            "Game Part"   "Full Time"
-                            "Market name" "MATCH_DRAW_NO_BET"
-                            "Outcome"     "HOME"
-                            "Param"       999999.0
-                            "id"          7.0}
-                           {"Calc triger" "YES"
-                            "Calc"        "RETURN"
-                            "Game Part"   "Full Time"
-                            "Market name" "MATCH_DRAW_NO_BET"
-                            "Outcome"     "AWAY"
-                            "Param"       999999.0
-                            "id"          8.0}]]
-
-
-
-          (create-test-session! file-id ssid)
-
-          (is (= [200 {"status" 200
-                       "data"   out-markets}]
-                 (-> (json-req! :post (urlf "/events/%s/out/set" ssid) filters)
-                     (resp->status+json :keywordize false))))
-
-          (is (= [200 {"status" 200
-                       "data"   out-markets}]
-                 (-> (req! :get (urlf "/events/%s/settlements" ssid))
-                     (resp->status+json :keywordize false))))))
-      )))

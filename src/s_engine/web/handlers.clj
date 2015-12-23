@@ -104,43 +104,59 @@
     (success-response 200)))
 
 (defn create-session! [h]
-  (fn [{:keys [file-id event-id description]} {:keys [session-storage storage]}]
-    (session/create! session-storage storage file-id event-id description)
-    (success-response 200)))
+  (fn [{:keys [file-id event-id description filters]} {:keys [session-storage storage]}]
+    (let [session (session/create! session-storage storage file-id event-id description)]
+      (when filters
+        (session/clean-out! session filters))
+      (success-response 200))))
 
 (defn finalize-session! [h]
   (fn [{:keys [event-id]} {:keys [session-storage storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (session/finalize! session-storage storage session)
-      (success-response 200))))
+      (if (session/with-locked-session session
+            (session/finalize! session-storage storage session))
+        (success-response 200)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn get-event-log [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
-    (->> (session/get-one session-storage event-id)
-         (session/get-cached-event-log)
-         (success-response 200))))
+    (let [session (session/get-one session-storage event-id)]
+      (if-let [event-log (session/with-locked-session session
+                     (session/get-cached-event-log session))]
+        (success-response 200 event-log)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn append-events! [h]
   (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (success-response 200 (session/append-events! storage session events)))))
+      (if-let [out (session/with-locked-session session
+                     (session/append-events! storage session events))]
+        (success-response 200 out)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn set-events! [h]
   (fn [{:keys [events event-id]} {:keys [storage session-storage]}]
     (let [session (session/get-one session-storage event-id)]
-      (success-response 200 (session/set-events! storage session events)))))
+      (if-let [out (session/with-locked-session session
+                     (session/set-events! storage session events))]
+        (success-response 200 out)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn get-settlements [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
-    (->> (session/get-one session-storage event-id)
-         (session/get-cached-out)
-         (success-response 200))))
+    (let [session (session/get-one session-storage event-id)]
+      (if-let [settlements (session/with-locked-session session
+                             (session/get-cached-out session))]
+        (success-response 200 settlements)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn get-workbook [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
-    (let [session (session/get-one session-storage event-id)
-          {:keys [file-name bytes]} (session/get-workbook session)]
-      (file-response bytes file-name))))
+    (let [session (session/get-one session-storage event-id)]
+      (if-let [{:keys [file-name bytes]} (session/with-locked-session session
+                                           (session/get-workbook session))]
+        (file-response bytes file-name)
+        (error-response 423 "CIP" "Calculation is in progress")))))
 
 (defn download-file [h]
   (fn [{file-id :file-id} {storage :storage}]
@@ -250,16 +266,3 @@
         check-extra-event-types
         check-extra-attributes
         check-valid-values))
-
-(defn parse-out-filters [h]
-  (fn [params w]
-    (if-let [filters-map (json->clj (:filters params))]
-      (h (assoc params :filters filters-map) w)
-      (error-response 400 "MFP" "Malformed json body"))))
-
-(defn filter-and-clean-out! [h]
-  (fn [{:keys [filters event-id] :as r} {:keys [session-storage]}]
-    (let [session (session/get-one session-storage event-id)]
-      (success-response 200 (session/clean-out! session filters)))))
-
-
