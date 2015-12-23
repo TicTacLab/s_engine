@@ -2,7 +2,8 @@
   (:require [malcolmx.core :as mx]
             [clojurewerkz.cassaforte.cql :as cql]
             [clojurewerkz.cassaforte.query :refer [where columns limit]]
-            [clojure.data :refer [diff]])
+            [clojure.data :refer [diff]]
+            [schema.core :as s])
   (:import (java.nio.file Paths Files)
            (org.apache.poi.ss.usermodel Workbook)
            (com.datastax.driver.core.utils Bytes)
@@ -112,20 +113,61 @@
         event-log-columns (get-sheet-columns workbook event-log-sheet)]
     (validate-columns attrs event-log-columns)))
 
-(defn get-event-types [rows]
-  "Returns attributes of event types in workbook:
-  {(Event type name) {(Attribute name) #{(Possible values)}}
-   \"Goal\" {\"Team\" #{\"Team1\" \"Team2\"}}}"
-  (reduce
-    (fn [acc row]
-      (let [event-name (get row event-type-column)
-            attr-name (get row event-type-attr-column)
-            attr-val (get row event-type-value-column)]
-        (if (empty? attr-name)
-          acc
-          (update-in acc [event-name attr-name] (fnil conj #{}) attr-val))))
-    {}
-    rows))
+(defn map-values [f m]
+  (reduce (fn [acc [k v]] (assoc acc k (f v))) {} m))
+
+(defn map-keys [f m]
+  (reduce (fn [acc [k v]] (assoc acc (f k) v)) {} m))
+
+(defn event-type [row] (nth row 0))
+(defn attribute [row] (nth row 1))
+(defn value [row] (nth row 2))
+
+(defn between [min max]
+  (s/both s/Num
+          (s/pred #(<= min % max) (list 'between min max))))
+
+
+(defn numeric-schema [rows]
+  (let [re #"\s*Numeric\s*\(\s*(\d+),\s*(\d+)\s*\)\s*"
+        v (value (first rows))
+        [match? min max] (re-find re v)]
+    (when match?
+      (between (Integer/valueOf min) (Integer/valueOf max)))))
+
+(defn string-schema [rows]
+  (let [re #"\s*String\s*"
+        v (value (first rows))]
+    (when (re-find re v)
+      s/Str)))
+
+(defn enum-schema [rows]
+  (->> rows
+       (map value)
+       (apply s/enum)))
+
+(defn value->schema [rows]
+  (or (numeric-schema rows)
+      (string-schema rows)
+      (enum-schema rows)))
+
+(defn group-by-attribute [rows]
+  (let [attrs (->> rows
+                   (group-by attribute)
+                   (map-values value->schema)
+                   (map-keys s/optional-key))]
+    (assoc attrs
+      (s/eq "EventType") (s/eq (event-type (first rows))))))
+
+(defn get-event-types-schema
+  "Returns schema for all event types:
+     {event-type schema,
+      event-type schema..}"
+  [rows]
+  (->> rows
+       (map vals)
+       (group-by event-type)
+       (map-values group-by-attribute)))
 
 (defn clear-event-log! [file-wb]
   (reset! (:event-log file-wb) [])
@@ -134,7 +176,7 @@
 (defn new-file-workbook
   [file]
   (let [workbook (mx/parse (:file file))
-        event-types (get-event-types (mx/get-sheet workbook event-type-sheet))
+        event-types (get-event-types-schema (mx/get-sheet workbook event-type-sheet))
         out (atom [])
         event-log (atom [])
         file-wb (->FileWorkbook workbook event-types (:file-name file) out event-log)]
