@@ -114,16 +114,19 @@
 
 (defn get-event-types [rows]
   "Returns attributes of event types in workbook:
-  {(Event type name) {(Attribute name) #{(Possible values)}}
+  {(Event type name) {(Attribute name) #{(Possible values)} or number?}
    \"Goal\" {\"Team\" #{\"Team1\" \"Team2\"}}}"
   (reduce
     (fn [acc row]
       (let [event-name (get row event-type-column)
             attr-name (get row event-type-attr-column)
-            attr-val (get row event-type-value-column)]
+            attr-val (get row event-type-value-column)
+            numeric? (= "Numeric" attr-val)]
         (if (empty? attr-name)
           acc
-          (update-in acc [event-name attr-name] (fnil conj #{}) attr-val))))
+          (if numeric?
+            (assoc-in acc [event-name attr-name] :numeric)
+            (update-in acc [event-name attr-name] (fnil conj #{}) attr-val)))))
     {}
     rows))
 
@@ -242,6 +245,12 @@
               (->> (dissoc event "EventType")
                    (map (fn [[attr value]]
                           (let [valid-values (get-in ets [et attr])]
-                            (when-not (contains? valid-values value)
-                              [et attr value])))))))
+                            (cond
+                              (set? valid-values)
+                              (when-not (contains? valid-values value)
+                                [et attr value])
+
+                              (= :numeric valid-values)
+                              (when-not (number? value)
+                                [et attr value]))))))))
        (remove nil?)))
