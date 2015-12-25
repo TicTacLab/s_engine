@@ -353,21 +353,6 @@
                                            "Attribute \"GamePart\" of Event type \"Red Card\" has invalid value: \"Quarter1\""))]
                    (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid)
                                   {:params events})
-                       (resp->status+json))))))
-
-        (testing "log append Value with wrong type"
-          (let [ssid (gen-session-id)
-                events [{"EventType" "Goal"
-                         "Min"       "Hello"}
-                        {"EventType" "Red Card"
-                         "Min"       130}]]
-            (create-test-session! file-id ssid)
-
-            (is (= [400 (hd/new-error 400 "MFP"
-                                      (str "Attribute \"Min\" with type \"Integer(1,120)\" of Event type \"Goal\" has invalid value: \"Hello\";"
-                                           "Attribute \"Min\" with type \"Integer(1,120)\" of Event type \"Red Card\" has invalid value: 130"))]
-                   (-> (json-req! :post (urlf "/events/%s/event-log/append" ssid)
-                                  {:params events})
                        (resp->status+json)))))))
 
       (testing "normal log append"

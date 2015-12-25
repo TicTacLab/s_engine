@@ -1,7 +1,6 @@
 (ns s-engine.storage.file-test
   (:require [clojure.test :refer :all]
-            [s-engine.storage.file :refer :all :as file]
-            [schema.core :as s])
+            [s-engine.storage.file :refer :all :as file])
   (:import (java.util Date)))
 
 (def ^:const test-file
@@ -69,31 +68,6 @@
                                  "Value" "Half1"}]))))
 
 (deftest get-event-types-test
-  (let [result (get-event-types-schema [{"EventType" "Red Card", "Attribute" "Game Part", "Value" "Half2"}
-                                        {"EventType" "Red Card", "Attribute" "Attribute", "Value" "True"}
-                                        {"EventType" "Red Card", "Attribute" "Number", "Value" "Numeric(1, 120)"}
-                                        {"EventType" "Red Card", "Attribute" "String", "Value" "String"}
-                                        {"EventType" "Goal", "Attribute" "Team", "Value" "Team1"}
-                                        {"EventType" "Goal", "Attribute" "Team", "Value" "Team2"}
-                                        {"EventType" "Red Card", "Attribute" "Team", "Value" "Team1"}
-                                        {"EventType" "Red Card", "Attribute" "Game Part", "Value" "Half1"}])]
-    (is (= {"Red Card" {(s/eq "EventType")           (s/eq "Red Card")
-                        (s/optional-key "Game Part") (s/enum "Half1" "Half2")
-                        (s/optional-key "Attribute") (s/enum "True")
-                        (s/optional-key "String")    s/Str
-                        (s/optional-key "Team")      (s/enum "Team1")}
-            "Goal"     {(s/eq "EventType")      (s/eq "Goal")
-                        (s/optional-key "Team") (s/enum "Team1" "Team2")}}
-           (-> result
-               ;; because we can't compare schemas pred with each other
-               (update-in ["Red Card"] dissoc (s/optional-key "Number"))))
-        "should create schema")
-
-    (is (= (list 'both 'Num (list 'pred (list 'between 1 120)))
-           (s/explain (get-in result ["Red Card" (s/optional-key "Number")]))))
-
-    )
-
   (is (= {}
          (get-event-types []))))
 
