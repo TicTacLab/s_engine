@@ -1,7 +1,7 @@
 (defproject s-engine "1.0.0-SNAPSHOT"
   :description "REST FOR SETTLEMENT EXCEL"
-  :dependencies [[org.clojure/clojure "1.7.0"]
-                 [malcolmx "0.1.4-SNAPSHOT"]
+  :dependencies [[org.clojure/clojure "1.8.0-RC3"]
+                 [malcolmx "0.1.8"]
                  [com.betinvest/noilly "0.1.4"]
                  [org.clojure/tools.trace "0.7.8"]
                  [org.slf4j/slf4j-api "1.7.12"]
@@ -25,15 +25,16 @@
                  :init-ns user}
   :uberjar-name "s-engine-standalone.jar"
   :jvm-opts ["-Dlogback.configurationFile=logback.xml"]
-  :repositories ^:replace [["snapshots" {:url      "http://52.28.244.218:8080/repository/snapshots"
-                                         :username [:env :gpg]
-                                         :password [:env :gpg]}]
-                           ["releases" {:url      "http://52.28.244.218:8080/repository/internal"
-                                        :username [:env :gpg]
-                                        :password [:env :gpg]}]]
+  :repositories [["snapshots" {:url "s3p://com.betengines.repo/snapshots"
+                               :username   "AKIAJULDYNE45TDQBDUQ"
+                               :passphrase "xpNOSHkr069mqbY1tbWZjzTQPO0o5H0cmd568c1V"}]
+                 ["releases" {:url "s3p://com.betengines.repo/releases"
+                              :username   "AKIAJULDYNE45TDQBDUQ"
+                              :passphrase "xpNOSHkr069mqbY1tbWZjzTQPO0o5H0cmd568c1V"}]]
 
   :plugins [[lein-ring "0.8.2"]
-            [lein-environ "1.0.0"]]
+            [lein-environ "1.0.0"]
+            [s3-wagon-private "1.1.2"]]
 
   :profiles {:dev  {:source-paths ["dev"]
                     :global-vars  {*warn-on-reflection* false}
