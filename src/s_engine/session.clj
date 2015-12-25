@@ -90,10 +90,11 @@
        (group-by #(get % "EventType"))
        (map (fn [[event-type entry]] [event-type (group-by #(get % "Attribute") entry)]))
        (map (fn [[event-type attritutes]]
-              {event-type
-               (map (fn [[attribute values]]
-                      {attribute (map #(get % "Value") values)})
-                    attritutes)}))))
+              [event-type
+               (into {} (map (fn [[attribute values]]
+                               [attribute (map #(get % "Value") values)])
+                             attritutes))]))
+       (into {})))
 
 (defn get-cached-out
   "Get market outcome sheet values"
