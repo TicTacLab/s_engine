@@ -17,7 +17,9 @@
                  [compojure "1.4.0"]
                  [ring "1.4.0"]
                  [dire "0.5.3"]
-                 [org.clojure/core.cache "0.6.4"]]
+                 [org.clojure/core.cache "0.6.4"]
+                 [com.datomic/simulant "0.1.8" :exclude [com.datomic/datomic-free]]
+                 [com.datomic/datomic-free "0.9.5344"]]
 
   :source-paths ["src"]
 

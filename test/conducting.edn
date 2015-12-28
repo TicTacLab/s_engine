@@ -1,0 +1,13 @@
+{:domain
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :message/value
+    :db/valueType :db.type/long}
+
+   {:db/id #db/id[:db.part/db]
+    :db/ident :bookmaker/id
+    :db/valueType :db.type/long
+    :db/unique :db.unique/identity
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+
+ }

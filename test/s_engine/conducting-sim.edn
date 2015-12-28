@@ -1,0 +1,55 @@
+{:model
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :model.type/conducting
+    :db/doc   "Model that models conducting of event by bookmaker"}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/bookmakersCount
+    :db/valueType          :db.type/long
+    :db/doc                "Number of bookmakers"
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/delayBetweenActions
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/meanNumberOfEvents
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/meanNumberOfMatches
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :message/value
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/many
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :action/value
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :agent/file-id
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :agent/session-id
+    :db/valueType          :db.type/uuid
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+ :test
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :test.type/conducting}
+   {:db/id    #db/id[:db.part/db]
+    :db/ident :agent.type/bookmaker}
+   {:db/id    #db/id[:db.part/db]
+    :db/ident :action.type/appendEvent}
+   {:db/id    #db/id[:db.part/db]
+    :db/ident :action.type/setEvents}]]
+ }
