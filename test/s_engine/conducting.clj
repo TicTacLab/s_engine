@@ -77,7 +77,7 @@
   (def simdb (d/db sim-conn))
 
   (def sums
-    (->> (d/q '[:find ?ssid ?action ?value
+    (->> (d/q '[:find ?ssid (count ?action) (sum ?value)
                 :where
                 [?agent :agent/type :agent.type/bookmaker]
                 [?agent :agent/session-id ?ssid]
@@ -85,9 +85,6 @@
                 [?action :action/value ?value]]
               simdb)
          (map (juxt first #(nth % 2)))
-         (group-by first)
-         (map (fn [[uuid vals]]
-                [uuid (apply + (map second vals))]))
          (into {})))
 
   (defn real-result-for-session-id [session-id]
