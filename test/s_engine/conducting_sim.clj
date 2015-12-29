@@ -31,7 +31,7 @@
   {:db/id          (d/tempid :test)
    :action/type    :action.type/appendEvent
    :action/value   (gen/geometric (/ 1 20))
-   :action/atTime at-time
+   :action/atTime  at-time
    :agent/_actions (e bookmaker)})
 
 (defn generate-bookmaker-work

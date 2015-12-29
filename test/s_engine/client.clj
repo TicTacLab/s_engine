@@ -5,7 +5,9 @@
 (defn check-error [res]
   (if-let [error (:error res)]
     (throw (Exception. (println "Error!" error)))
-    res))
+    (if (not= 200 (:status res))
+      (throw (Exception. (pr-str res)))
+      res)))
 
 (defn upload-file [file-id file]
   (check-error
@@ -24,3 +26,7 @@
   (check-error
     (json-req! :post (urlf "/events/%s/event-log/append" session-id)
                {:params [event]})))
+
+(defn get-settlements [session-id]
+  (check-error
+    (req! :get (urlf "/events/%s/settlements" session-id))))

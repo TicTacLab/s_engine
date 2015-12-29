@@ -4,11 +4,13 @@
             [simulant.util :refer :all]
             [simulant.sim :as sim]
             [s-engine.conducting-sim]
+            [s-engine.test-helper :refer :all]
             [s-engine.system :as s]
             [s-engine.config :as c]
             [s-engine.config :as c]
             [com.stuartsierra.component :as component]
-            [clojure.test :refer [is]]))
+            [s-engine.client :as se]
+            [cheshire.core :as json]))
 
 (defn reset-conn
   "Reset connection to a scratch database. Use memory database if no
@@ -44,8 +46,7 @@
     [{:db/id                     model-id
       :model/type                :model.type/conducting
       :model/bookmakersCount     10
-      :model/meanNumberOfEvents  100
-      :model/delayBetweenActions (int 30e3)}])
+      :model/delayBetweenActions (* 30 1000)}])
 
   (def conducting-model
     (-> @(d/transact sim-conn conducting-model-data)
@@ -54,7 +55,7 @@
 
   (def conducting-test (sim/create-test sim-conn conducting-model
                                         {:db/id         (d/tempid :test)
-                                         :test/duration (hours->msec 1)}))
+                                         :test/duration (hours->msec 2)}))
 
   (def conducting-sim (sim/create-sim sim-conn conducting-test {:db/id            (d/tempid :sim)
                                                                 :sim/systemURI    (str "datomic:free://localhost:4334/" (d/squuid))
@@ -63,7 +64,7 @@
   (def action-log
     (sim/create-action-log sim-conn conducting-sim))
 
-  (def sim-clock (sim/create-fixed-clock sim-conn conducting-sim {:clock/multiplier 96}))
+  (def sim-clock (sim/create-fixed-clock sim-conn conducting-sim {:clock/multiplier 960}))
 
   (def pruns
     (->> #(sim/run-sim-process sim-uri (:db/id conducting-sim))
@@ -75,43 +76,31 @@
 
   (def simdb (d/db sim-conn))
 
-  (def bookmakers
-    (d/q '[:find [?agent ...]
-           :where [?agent :agent/type :agent.type/bookmaker]]
-         simdb))
-
   (def sums
-    (>trace (->> (map (fn [bookmaker]
-                        [bookmaker
-                         (d/q '[:find (sum ?value) .
-                                :in $ ?agent
-                                :where
-                                [?agent :agent/actions ?actions]
-                                [?actions :action/value ?value]]
-                              simdb
-                              bookmaker)])
-                      bookmakers)
-                 (into {}))))
-
-  (def bookie->file-id
-    (->> (map (fn [bookie]
-                [bookie
-                 (d/q '[:find ?file-id .
-                        :in $ ?agent
-                        :where
-                        [?agent :agent/file-id ?file-id]]
-                      simdb bookie)])
-              bookmakers)
+    (->> (d/q '[:find ?ssid ?action ?value
+                :where
+                [?agent :agent/type :agent.type/bookmaker]
+                [?agent :agent/session-id ?ssid]
+                [?agent :agent/actions ?action]
+                [?action :action/value ?value]]
+              simdb)
+         (map (juxt first #(nth % 2)))
+         (group-by first)
+         (map (fn [[uuid vals]]
+                [uuid (apply + (map second vals))]))
          (into {})))
 
-  (defn real-result-for-file-id [file-id]
-    400)
+  (defn real-result-for-session-id [session-id]
+    (-> (se/get-settlements session-id)
+        :body
+        json/parse-string
+        (get-in ["data" 0 "Calc"])))
 
-  #_(doseq [[bookie expected-sum] sums]
-    (let [real-sum (real-result-for-file-id (bookie->file-id bookie))]
-      (is (= real-sum expected-sum)
-          (format "Bookie %s calculates wrong" bookie))))
+  (doseq [[session-id expected-sum] sums]
+    (let [real-sum (real-result-for-session-id session-id)]
+      (assert (= real-sum (double expected-sum))
+          (format "Bookie %s calculates wrong" session-id))))
 
   (finally
-    #_(swap! system component/stop)))
+    (swap! system component/stop)))
 

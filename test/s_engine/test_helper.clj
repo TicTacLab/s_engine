@@ -42,6 +42,14 @@
         path (apply format path-fmt args)]
     (format "http://localhost:%d%s" port path)))
 
+(defn resp->status+json
+  [{:keys [status body]} & {kw? :keywordize :or {kw? true}}]
+  [status (json/parse-string body kw?)])
+
+(defn resp->status+body
+  [{:keys [status body]}]
+  [status body])
+
 (defn load-test-file!
   ([]
    (load-test-file! test-file-id))
