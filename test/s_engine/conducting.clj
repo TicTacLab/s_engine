@@ -76,16 +76,12 @@
 
   (def simdb (d/db sim-conn))
 
-  (def sums
-    (->> (d/q '[:find ?ssid (count ?action) (sum ?value)
-                :where
-                [?agent :agent/type :agent.type/bookmaker]
-                [?agent :agent/session-id ?ssid]
-                [?agent :agent/actions ?action]
-                [?action :action/value ?value]]
-              simdb)
-         (map (juxt first #(nth % 2)))
-         (into {})))
+  (def ssids
+    (d/q '[:find [?ssid ...]
+           :where
+           [?agent :agent/type :agent.type/bookmaker]
+           [?agent :agent/session-id ?ssid]]
+         simdb))
 
   (defn real-result-for-session-id [session-id]
     (-> (se/get-settlements session-id)
@@ -93,11 +89,61 @@
         json/parse-string
         (get-in ["data" 0 "Calc"])))
 
-  (doseq [[session-id expected-sum] sums]
-    (let [real-sum (real-result-for-session-id session-id)]
+  (doseq [ssid ssids]
+
+    (let [lastSetEventTime
+          (d/q '[:find (max ?time) .
+                 :in $ ?ssid
+                 :where
+                 [?agent :agent/type :agent.type/bookmaker]
+                 [?agent :agent/session-id ?ssid]
+                 [?agent :agent/actions ?action]
+                 [?action :action/type :action.type/setEvents]
+                 [?action :action/atTime ?time]]
+               simdb
+               ssid)
+
+          setEventsValues
+          (->> (d/q '[:find (pull ?action [:action/values]) .
+                      :in $ ?ssid ?time
+                      :where
+                      [?agent :agent/type :agent.type/bookmaker]
+                      [?agent :agent/session-id ?ssid]
+                      [?agent :agent/actions ?action]
+                      [?action :action/type :action.type/setEvents]
+                      [?action :action/atTime ?time]]
+                    simdb
+                    ssid
+                    lastSetEventTime)
+               :action/values)
+
+          appendEventsValues
+          (d/q '[:find [?value ...]
+                 :in $ ?ssid ?time
+                 :with ?action
+                 :where
+                 [?agent :agent/type :agent.type/bookmaker]
+                 [?agent :agent/session-id ?ssid]
+                 [?agent :agent/actions ?action]
+                 [?action :action/type :action.type/appendEvent]
+                 [?action :action/value ?value]
+                 [?action :action/atTime ?actionTime]
+                 [(> ?actionTime ?time)]]
+               simdb
+               ssid
+               lastSetEventTime)
+
+          expected-sum
+          (+ (apply + setEventsValues)
+             (apply + appendEventsValues))
+
+          real-sum
+          (real-result-for-session-id ssid)]
+
       (assert (= real-sum (double expected-sum))
-          (format "Bookie %s calculates wrong" session-id))))
+              (format "Bookie %s calculates wrong: (not= %f %f)"
+                      ssid real-sum (double expected-sum)))))
 
   (finally
-    (swap! system component/stop)))
+    #_(swap! system component/stop)))
 

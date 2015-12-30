@@ -27,12 +27,23 @@
         txresult (d/transact conn bookmakers)]
     (tx-entids @txresult (map :db/id bookmakers))))
 
-(defn generate-action [test bookmaker at-time]
+(defn generate-append-events [test bookmaker at-time]
   {:db/id          (d/tempid :test)
    :action/type    :action.type/appendEvent
    :action/value   (gen/geometric (/ 1 20))
    :action/atTime  at-time
    :agent/_actions (e bookmaker)})
+
+(defn generate-set-events [test bookmaker at-time]
+  {:db/id                  (d/tempid :test)
+   :action/type            :action.type/setEvents
+   :action/values          (repeatedly (gen/geometric (/ 1 6)) #(gen/geometric (/ 1 20)))
+   :action/atTime          at-time
+   :agent/_actions         (e bookmaker)})
+
+(defn generate-events [test bookmaker at-time]
+  (gen/weighted {#(generate-append-events test bookmaker at-time) 9
+                 #(generate-set-events test bookmaker at-time)     1}))
 
 (defn generate-bookmaker-work
   [test bookmaker]
@@ -41,7 +52,7 @@
         step #(gen/geometric (/ 1 (:model/delayBetweenActions model)))]
     (->> (reductions + (repeatedly step))
          (take-while (fn [t] (< t limit)))
-         (map #(generate-action test bookmaker %)))))
+         (map #(generate-events test bookmaker %)))))
 
 (defn generate-bookmakers-work [test bookmakers]
   (map #(generate-bookmaker-work test %) bookmakers))
@@ -81,13 +92,30 @@
   [action process]
   (let [sim (-> process :sim/_processes only)
         action-log (getx sim/*services* :simulant.sim/actionLog)
-        before (System/nanoTime)
-        agent (-> action :agent/_actions only)
-        file-id (:agent/file-id agent)
-        session-id (:agent/session-id agent)
-        value (:action/value action)]
+        session-id (-> action :agent/_actions only :agent/session-id)
+        value (:action/value action)
+        before (System/nanoTime)]
 
     (append-event! session-id value)
+
+    (action-log [{:actionLog/nsec (- (System/nanoTime) before)
+                  :db/id (d/tempid :db.part/user)
+                  :actionLog/sim (e sim)
+                  :actionLog/action (e action)}])))
+
+(defn set-events! [session-id values]
+  (let [messages (map #(hash-map "EventType" "Ping", "Value" %) values)]
+    (se/set-events session-id messages)))
+
+(defmethod sim/perform-action :action.type/setEvents
+  [action process]
+  (let [sim (-> process :sim/_processes only)
+        action-log (getx sim/*services* :simulant.sim/actionLog)
+        session-id (-> action :agent/_actions only :agent/session-id)
+        values (:action/values action)
+        before (System/nanoTime)]
+
+    (set-events! session-id values)
 
     (action-log [{:actionLog/nsec (- (System/nanoTime) before)
                   :db/id (d/tempid :db.part/user)

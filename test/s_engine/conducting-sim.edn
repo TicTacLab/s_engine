@@ -47,5 +47,12 @@
     :db/doc                "Value of action.type/appendEvent be sent"
     :db/valueType          :db.type/long
     :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :action/values
+    :db/doc                "New values to change all log"
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/many
     :db.install/_attribute :db.part/db}]]
  }

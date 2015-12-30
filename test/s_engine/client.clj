@@ -30,3 +30,8 @@
 (defn get-settlements [session-id]
   (check-error
     (req! :get (urlf "/events/%s/settlements" session-id))))
+
+(defn set-events [session-id events]
+  (check-error
+    (json-req! :post (urlf "/events/%s/event-log/set" session-id)
+               {:params events})))
