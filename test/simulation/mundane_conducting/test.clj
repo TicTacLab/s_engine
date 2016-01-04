@@ -1,9 +1,9 @@
-(ns s-engine.conducting
+(ns simulation.mundane_conducting.test
   (:require [datomic.api :as d]
             [clojure.java.io :as io]
             [simulant.util :refer :all]
             [simulant.sim :as sim]
-            [s-engine.conducting-sim]
+            [simulation.mundane_conducting.setup]
             [s-engine.test-helper :refer :all]
             [s-engine.system :as s]
             [s-engine.config :as c]
@@ -27,13 +27,13 @@
       (doseq [tx v]
         @(d/transact conn tx)))))
 
-(def sim-uri (str "datomic:free://localhost:4334/" (d/squuid) "_conducting"))
+(def sim-uri (str "datomic:free://localhost:4334/" (d/squuid)))
 
 (def sim-conn (reset-conn sim-uri))
 
 (load-schema sim-conn "simulant/schema.edn")
 
-(load-schema sim-conn "s_engine/conducting-sim.edn")
+(load-schema sim-conn "simulation/mundane_conducting/schema.edn")
 
 (defonce system (atom (s/new-system @c/config)))
 
@@ -42,20 +42,19 @@
   (swap! system (comp component/start component/stop))
 
   (def model-id (d/tempid :model))
-  (def conducting-model-data
-    [{:db/id                     model-id
-      :model/type                :model.type/conducting
-      :model/bookmakersCount     10
-      :model/delayBetweenActions (* 30 1000)}])
+
 
   (def conducting-model
-    (-> @(d/transact sim-conn conducting-model-data)
+    (-> @(d/transact sim-conn [{:db/id                     model-id
+                                :model/type                :model.type/conducting
+                                :model/bookmakersCount     100
+                                :model/delayBetweenActions (* 30 1000)}])
         (tx-ent model-id)))
 
 
   (def conducting-test (sim/create-test sim-conn conducting-model
                                         {:db/id         (d/tempid :test)
-                                         :test/duration (hours->msec 2)}))
+                                         :test/duration (hours->msec 12)}))
 
   (def conducting-sim (sim/create-sim sim-conn conducting-test {:db/id            (d/tempid :sim)
                                                                 :sim/systemURI    (str "datomic:free://localhost:4334/" (d/squuid))
@@ -66,13 +65,14 @@
 
   (def sim-clock (sim/create-fixed-clock sim-conn conducting-sim {:clock/multiplier 960}))
 
-  (def pruns
-    (->> #(sim/run-sim-process sim-uri (:db/id conducting-sim))
-         (repeatedly (:sim/processCount conducting-sim))
-         (into [])))
+  (comment
+    (def pruns
+      (->> #(sim/run-sim-process sim-uri (:db/id conducting-sim))
+           (repeatedly (:sim/processCount conducting-sim))
+           (into [])))
 
-  (time
-    (mapv (fn [prun] @(:runner prun)) pruns))
+    (time
+      (mapv (fn [prun] @(:runner prun)) pruns)))
 
   (def simdb (d/db sim-conn))
 
@@ -144,6 +144,6 @@
               (format "Bookie %s calculates wrong: (not= %f %f)"
                       ssid real-sum (double expected-sum)))))
 
-  (finally
-    #_(swap! system component/stop)))
+  (catch Exception _
+    (swap! system component/stop)))
 

@@ -180,7 +180,7 @@
   [file-wb]
   (->> event-type-sheet
        (mx/get-sheet (:workbook file-wb))
-       (remove (comp nil? #(get % "id")))))
+       (remove (comp nil? #(get % "EventType")))))
 
 (defn get-cached-event-log-rows
   "Return cached event-log"

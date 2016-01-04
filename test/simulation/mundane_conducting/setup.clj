@@ -1,4 +1,4 @@
-(ns s-engine.conducting-sim
+(ns simulation.mundane_conducting.setup
   (:require [simulant.sim :as sim]
             [simulant.util :refer :all]
             [datomic.api :as d]

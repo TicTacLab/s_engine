@@ -58,6 +58,11 @@
 (defn call [f obj web]
   ((f identity) obj web))
 
+(defn trace [h]
+  (fn [payload w]
+    (>trace payload)
+    (h payload w)))
+
 ;; ======
 ;; Handlers
 ;; ======
