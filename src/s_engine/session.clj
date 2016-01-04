@@ -83,6 +83,19 @@
   (ev/refresh! storage (:id session) events)
   (get-out session))
 
+(defn get-event-types
+  "Return event types defined in excel file"
+  [session]
+  (->> (file/get-event-type-rows (:file-wb session))
+       (group-by #(get % "EventType"))
+       (map (fn [[event-type entry]] [event-type (group-by #(get % "Attribute") entry)]))
+       (map (fn [[event-type attritutes]]
+              [event-type
+               (into {} (map (fn [[attribute values]]
+                               [attribute (map #(get % "Value") values)])
+                             attritutes))]))
+       (into {})))
+
 (defn get-cached-out
   "Get market outcome sheet values"
   [session]

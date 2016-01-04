@@ -292,6 +292,100 @@
                        (resp->status+json)))
                 "should return empty data")))))))
 
+(deftest session-get-event-types-test
+  (with-started-system [system]
+    (let [file-id (gen-file-id)]
+      (load-test-file! file-id event-type-file)
+
+      (testing "get event types from not created session"
+        (let [ssid (gen-session-id)]
+          (is (= [404 (hd/new-error 404 "ENF" (format "Event with id '%s' is not created"
+                                                      ssid))]
+                 (-> (req! :get (urlf "/events/%s/event-types" ssid))
+                     resp->status+json))
+              "should fail if session not exists"))
+
+        (testing "normal process"
+          (let [ssid (gen-session-id)]
+            (create-test-session! file-id ssid)
+            (is (= [200
+                    {"data"   {"Corner"          {"GamePart" ["Half1"
+                                                              "Half2"
+                                                              "Extratime1"
+                                                              "Extratime2"]
+                                                  "Team"     ["Team1"
+                                                              "Team2"]}
+                               "Extratime1"      {"Action" ["start"
+                                                            "stop"]}
+                               "Extratime2"      {"Action" ["start"
+                                                            "stop"]}
+                               "Goal"            {"Accidental"       ["OwnGoal"]
+                                                  "BodyPart"         ["Head"
+                                                                      "Leg"]
+                                                  "Current Handicap" ["Numeric"]
+                                                  "GamePart"         ["Half1"
+                                                                      "Half2"
+                                                                      "Extratime1"
+                                                                      "Extratime2"]
+                                                  "Player"           ["Player1"
+                                                                      "Player2"
+                                                                      "Player3"
+                                                                      "Player4"
+                                                                      "Player5"
+                                                                      "Player6"
+                                                                      "Player7"
+                                                                      "Player8"
+                                                                      "Player9"
+                                                                      "Player10"
+                                                                      "Player11"
+                                                                      "Player12"
+                                                                      "Player13"
+                                                                      "Player14"
+                                                                      "Player15"
+                                                                      "Player16"
+                                                                      "Player17"
+                                                                      "Player18"
+                                                                      "Player19"
+                                                                      "Player20"]
+                                                  "Standart"         ["Corner"
+                                                                      "Penalty"
+                                                                      "FreeKick"]
+                                                  "Team"             ["Team1"
+                                                                      "Team2"]}
+                               "Half1"           {"Action" ["start"
+                                                            "stop"]}
+                               "Half2"           {"Action" ["start"
+                                                            "stop"]}
+                               "Match"           {"Action" ["inprogress"
+                                                            "finished"
+                                                            "cancelled"]}
+                               "Missed Penalty"  {"GamePart" ["PenatlyShootOut"]}
+                               "Penalty"         {"GamePart" ["PenatlyShootOut"]}
+                               "PenaltyShootOut" {"Action" ["start"
+                                                            "stop"]}
+                               "Red Card"        {"GamePart" ["Half1"
+                                                              "Half2"
+                                                              "Extratime1"
+                                                              "Extratime2"]
+                                                  "Team"     ["Team1"
+                                                              "Team2"]}
+                               "Try Penalty"     {"GamePart" ["Half1"
+                                                              "Half2"
+                                                              "Extratime1"
+                                                              "Extratime2"]
+                                                  "Team"     ["Team1"
+                                                              "Team2"]}
+                               "Yellow Card"     {"GamePart" ["Half1"
+                                                              "Half2"
+                                                              "Extratime1"
+                                                              "Extratime2"]
+                                                  "Team"     ["Team1"
+                                                              "Team2"]}}
+                     "status" 200}]
+                   (-> (req! :get (urlf "/events/%s/event-types" ssid))
+                       (resp->status+json :keywordize false)))
+                "should return empty data")))))))
+
 (deftest session-append-event-test
   (with-started-system [system]
 

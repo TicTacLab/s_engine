@@ -15,6 +15,7 @@
 (def ^:const test-file2 "test/resources/AutoCalc_Soccer_EventLog_FOR_REPLACE.xlsx")
 (def ^:const test-file3 "test/resources/AutoCalc_Soccer_EventLog1.xlsx")
 (def ^:const invalid-file "test/resources/AutoCalc_Soccer_EventLog.invalid.xlsx")
+(def ^:const event-type-file "test/resources/SEngine_Soccer_v.1.1.1.xlsx")
 
 (defmacro with-started-system
   [[sys-name config] & body]
@@ -61,8 +62,7 @@
                                        :content  (io/file file-name)
                                        :filename "test-model.xlsx"}]})]
      (when (not= (:status file-resp) 200)
-       (throw (Exception. (format "Error during creating test file: %s" file-resp))))))
-  )
+       (throw (Exception. (format "Error during creating test file: %s" file-resp)))))))
 
 (defn create-test-session! [file-id session-id]
   (let [resp (json-req! :post (urlf "/events") {:params {:file-id file-id,

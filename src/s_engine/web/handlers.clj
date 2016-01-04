@@ -150,6 +150,14 @@
         (success-response 200 settlements)
         (error-response 423 "CIP" "Calculation is in progress")))))
 
+(defn get-event-types [h]
+  (fn [{:keys [event-id]} {:keys [session-storage]}]
+    (let [session (session/get-one session-storage event-id)]
+      (if-let [event-types (session/with-locked-session session
+                              (session/get-event-types session))]
+        (success-response 200 event-types)
+        (error-response 423 "CIP" "Calculation is in progress")))))
+
 (defn get-workbook [h]
   (fn [{:keys [event-id]} {:keys [session-storage]}]
     (let [session (session/get-one session-storage event-id)]

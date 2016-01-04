@@ -70,6 +70,11 @@
         hd/check-session-exists
         hd/get-event-log))
 
+(def session-get-event-types
+  (comp hd/check-event-id
+        hd/check-session-exists
+        hd/get-event-types))
+
 (def session-append-event
   (comp hd/check-event-id
         hd/check-session-exists
@@ -128,6 +133,9 @@
 
   (GET "/events/:event-id/event-log" {:keys [web params]}
     (hd/call session-get-event-log params web))
+
+  (GET "/events/:event-id/event-types" {:keys [web params]}
+    (hd/call session-get-event-types params web))
 
   (POST "/events/:event-id/event-log/append" {:keys [web params] :as r}
     (let [events (req/body-string r)]
