@@ -1,0 +1,58 @@
+{:model
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :model.type/conducting
+    :db/doc   "Model that models conducting of event by bookmaker"}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/bookmakersCount
+    :db/valueType          :db.type/long
+    :db/doc                "Number of bookmakers"
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :model/delayBetweenActions
+    :db/valueType          :db.type/long
+    :db/doc                "Mean delay between bookmakers actions"
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+
+ :test
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :test.type/conducting}]]
+
+ :agent
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :agent.type/bookmaker}
+
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :agent/file-id
+    :db/doc                "File id that bookmaker will use"
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :agent/session-id
+    :db/doc                "Session id that bookmaker will use"
+    :db/valueType          :db.type/uuid
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+
+ :action
+ [[{:db/id    #db/id[:db.part/db]
+    :db/ident :action.type/appendEvent}
+   {:db/id    #db/id[:db.part/db]
+    :db/ident :action.type/setEvents}
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :action/value
+    :db/doc                "Value of action.type/appendEvent be sent"
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+
+   {:db/id                 #db/id[:db.part/db]
+    :db/ident              :action/values
+    :db/doc                "New values to change all log"
+    :db/valueType          :db.type/long
+    :db/cardinality        :db.cardinality/many
+    :db.install/_attribute :db.part/db}]]
+ }

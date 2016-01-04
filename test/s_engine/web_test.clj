@@ -6,14 +6,6 @@
             [s-engine.web.handlers :as hd]
             [s-engine.test-helper :refer :all]))
 
-(defn- resp->status+json
-  [{:keys [status body]} & {kw? :keywordize :or {kw? true}}]
-  [status (json/parse-string body kw?)])
-
-(defn- resp->status+body
-  [{:keys [status body]}]
-  [status body])
-
 ;;
 ;; Routes test
 ;;
